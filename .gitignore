@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Databases
+*.db
+*.sqlite
+*.db-shm
+*.db-wal
+
+# Personal content (use .gitkeep to preserve folder structure)
+books/*
+!books/.gitkeep
+comics/*
+!comics/.gitkeep
+cache/covers/*
+!cache/covers/.gitkeep
+
+# IDE
+.idea/*
+!.idea/.gitignore
+
+# Claude Code
+.claude/
+
+# Test artifacts
+tests/screenshots/
+
+# Misc artifacts
+issue.png

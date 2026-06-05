@@ -1,0 +1,147 @@
+extends layout
+
+block title
+    title Comics — BookNook
+
+block content
+    main
+        .row
+            h1 Comics
+            if groups.length || standalone.length
+                each group in groups
+                    .series-group
+                        .series-group__header
+                            span.series-group__name= group.name
+                            span.series-group__count= group.items.length + (group.items.length === 1 ? ' issue' : ' issues')
+                        .library-grid
+                            each comic in group.items
+                                a.book-card(href='/comics/read/'+comic.id data-id=comic.id data-status=comic.status||'none')
+                                    .book-card__cover
+                                        img.book-card__cover-img(src='/cache/covers/c'+comic.id+'.jpg' alt='' onerror="this.style.display='none'")
+                                        span.book-card__initial= comic.title.charAt(0)
+                                        .book-card__status-dot
+                                    .book-card__info
+                                        p.book-card__title= comic.title
+                                        p.book-card__author
+                                            if comic.issue
+                                                = '#' + comic.issue
+                                            else
+                                                = comic.pageCount + ' pages'
+                if standalone.length
+                    if groups.length
+                        .series-group__header
+                            span.series-group__name Other
+                            span.series-group__count= standalone.length + (standalone.length === 1 ? ' issue' : ' issues')
+                    .library-grid
+                        each comic in standalone
+                            a.book-card(href='/comics/read/'+comic.id data-id=comic.id data-status=comic.status||'none')
+                                .book-card__cover
+                                    img.book-card__cover-img(src='/cache/covers/c'+comic.id+'.jpg' alt='' onerror="this.style.display='none'")
+                                    span.book-card__initial= comic.title.charAt(0)
+                                    .book-card__status-dot
+                                .book-card__info
+                                    p.book-card__title= comic.title
+                                    p.book-card__author= comic.pageCount + ' pages'
+            .upload-section
+                form#upload-form(action="/comics/upload" method="POST" enctype="multipart/form-data")
+                    .drop-zone#drop-zone
+                        img.drop-zone__icon(src="/assets/favicon.svg" alt="" width="56" height="56")
+                        p.drop-zone__text Drop comics here
+                        p.drop-zone__sub .cbz files supported · multiple allowed
+                        label.btn(for="comic") Browse files
+                        input#comic(type="file" name="comic" accept=".cbz,.cbr" multiple hidden)
+                    p#file-name.drop-zone__filename
+                    button.btn(type="submit") Upload Comics
+    #toast.toast
+        .toast__spinner#toast-spinner
+        span#toast-msg
+        #context-menu.context-menu
+            button.context-menu__item.context-menu__item--status(data-status="want") Want to read
+            button.context-menu__item.context-menu__item--status(data-status="reading") Reading
+            button.context-menu__item.context-menu__item--status(data-status="read") Read
+            button.context-menu__item.context-menu__item--status(data-status="none") Clear status
+            .context-menu__sep
+            button#ctx-delete.context-menu__item.context-menu__item--danger Delete
+
+block scripts
+    script.
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('comic');
+        const fileName  = document.getElementById('file-name');
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toast-msg');
+        const toastSpinner = document.getElementById('toast-spinner');
+        let errorTimer = null;
+        const showToast = msg => { clearTimeout(errorTimer); toast.classList.remove('toast--error'); toastSpinner.style.display = ''; toastMsg.textContent = msg; toast.classList.add('toast--visible'); };
+        const showError = msg => { clearTimeout(errorTimer); toast.classList.add('toast--error'); toastSpinner.style.display = 'none'; toastMsg.textContent = msg; toast.classList.add('toast--visible'); errorTimer = setTimeout(() => toast.classList.remove('toast--visible'), 5000); };
+        const hideToast = () => { clearTimeout(errorTimer); toast.classList.remove('toast--visible'); };
+
+        const setFiles = files => {
+            if (!files.length) return;
+            const names = Array.from(files).map(f => f.name);
+            fileName.textContent = names.length === 1 ? names[0] : `${names.length} files selected`;
+            const dt = new DataTransfer();
+            Array.from(files).forEach(f => dt.items.add(f));
+            fileInput.files = dt.files;
+        };
+
+        fileInput.addEventListener('change', () => setFiles(fileInput.files));
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drop-zone--active'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-zone--active'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('drop-zone--active');
+            setFiles(e.dataTransfer.files);
+        });
+
+        document.getElementById('upload-form').addEventListener('submit', async e => {
+            e.preventDefault();
+            const files = Array.from(fileInput.files);
+            if (!files.length) return;
+            showToast(`Uploading ${files.length === 1 ? files[0].name : files.length + ' comics'}…`);
+            try {
+                await fetch('/comics/upload', { method: 'POST', body: new FormData(e.target) });
+            } catch {}
+            hideToast();
+            location.href = '/comics';
+        });
+
+        const menu = document.getElementById('context-menu');
+        let activeId = null, menuTimeout = null;
+        const closeMenu = () => { menu.classList.remove('context-menu--visible'); clearTimeout(menuTimeout); };
+        const resetMenuTimer = () => { clearTimeout(menuTimeout); menuTimeout = setTimeout(closeMenu, 10000); };
+        menu.addEventListener('mouseenter', resetMenuTimer);
+        menu.addEventListener('mouseleave', resetMenuTimer);
+
+        document.querySelectorAll('.book-card').forEach(card => {
+            card.addEventListener('contextmenu', e => {
+                e.preventDefault();
+                activeId = card.dataset.id;
+                menu.classList.add('context-menu--visible');
+                resetMenuTimer();
+                const rect = card.getBoundingClientRect();
+                const x = rect.right + menu.offsetWidth > window.innerWidth ? rect.left - menu.offsetWidth : rect.right;
+                const y = Math.min(rect.top, window.innerHeight - menu.offsetHeight);
+                menu.style.left = x + 'px';
+                menu.style.top  = y + 'px';
+            });
+        });
+        document.addEventListener('click', closeMenu);
+
+        document.querySelectorAll('.context-menu__item--status').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!activeId) return;
+                await fetch(`/comics/${activeId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: btn.dataset.status }),
+                });
+                document.querySelector(`.book-card[data-id="${activeId}"]`).dataset.status = btn.dataset.status;
+            });
+        });
+
+        document.getElementById('ctx-delete').addEventListener('click', async () => {
+            if (!activeId) return;
+            await fetch(`/comics/${activeId}`, { method: 'DELETE' });
+            document.querySelector(`.book-card[data-id="${activeId}"]`)?.remove();
+        });

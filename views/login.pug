@@ -1,0 +1,27 @@
+doctype html
+html
+    head
+        title Sign in — BookNook
+        meta(name="viewport" content="width=device-width, initial-scale=1")
+        link(rel="icon" href="/assets/favicon.svg")
+        link(rel="stylesheet" href="/styles.css")
+        script.
+            const _t = localStorage.getItem('theme');
+            if (_t) document.documentElement.setAttribute('data-theme', _t);
+    body
+        .login-page
+            .login-card
+                a.login-logo(href='/')
+                    img.logo--light(src="/assets/logo.svg" alt="BookNook" height="40")
+                    img.logo--dark(src="/assets/logo-dark.svg" alt="BookNook" height="40")
+                h1.login-title Sign in
+                if error
+                    p.login-error= error
+                form.login-form(action='/login' method='POST')
+                    .form-field
+                        label(for='username') Username
+                        input#username(type='text' name='username' autocomplete='username' required autofocus)
+                    .form-field
+                        label(for='password') Password
+                        input#password(type='password' name='password' autocomplete='current-password' required)
+                    button.btn(type='submit') Sign in

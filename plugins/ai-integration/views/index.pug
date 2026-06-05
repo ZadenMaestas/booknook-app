@@ -1,0 +1,40 @@
+extends /views/layout.pug
+
+block title
+    title AI Recommendations — BookNook
+
+block content
+    main
+        .row
+            h1 AI Recommendations
+            if !apiConfigured
+                .ai-setup
+                    p.ai-setup__msg
+                        | Add your free Gemini API key to
+                        code .env
+                        |  to enable AI recommendations:
+                    pre.ai-setup__code GEMINI_API_KEY=your_key_here
+                    p.ai-setup__hint
+                        | Get a free key at
+                        a(href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener") aistudio.google.com
+                        | . No billing required.
+            else if recs.length === 0
+                p.placeholder-text Right-click any book in your library and choose ✦ AI Recommendations to get started.
+            else
+                .ai-history
+                    each rec in recs
+                        - var items = JSON.parse(rec.note)
+                        .ai-history-entry
+                            .ai-history-entry__header
+                                span.ai-history-entry__book= rec.bookTitle || 'Unknown book'
+                                if rec.bookAuthor
+                                    span.ai-history-entry__author= rec.bookAuthor
+                                span.ai-history-entry__date= new Date(rec.created_at).toLocaleDateString()
+                            ol.ai-rec-list.ai-rec-list--inline
+                                each item in items
+                                    li.ai-rec
+                                        div.ai-rec__title= item.title
+                                        div.ai-rec__author= item.author
+                                        div.ai-rec__reason= item.reason
+                                        div.ai-rec__dl-row
+                                            button.ai-rec__dl-btn(data-title=item.title data-author=item.author || '') ↓ Add to Library

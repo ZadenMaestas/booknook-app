@@ -1,0 +1,164 @@
+extends layout
+
+block title
+    title Library — BookNook
+
+block content
+    main
+        .row
+            h1 Library
+            if books.length
+                .library-grid
+                    each book in books
+                        a.book-card(href='/reader/'+book.id data-id=book.id data-status=book.status||'none')
+                            .book-card__cover
+                                img.book-card__cover-img(src='/cache/covers/'+book.id+'.jpg' alt='' loading="lazy" decoding="async" onerror="this.style.display='none'")
+                                span.book-card__initial= book.title.charAt(0)
+                                .book-card__status-dot
+                            .book-card__info
+                                p.book-card__title= book.title
+                                p.book-card__author= book.author || 'Unknown author'
+                                if book.isbn
+                                    p.book-card__isbn= book.isbn
+            .upload-section
+                form#upload-form(action="/upload" method="POST" enctype="multipart/form-data")
+                    .drop-zone#drop-zone
+                        img.drop-zone__icon(src="/assets/favicon.svg" alt="" width="56" height="56")
+                        p.drop-zone__text Drop a book here
+                        p.drop-zone__sub .epub, .pdf, .mobi and more
+                        label.btn(for="uploadedBook") Browse files
+                        input#uploadedBook(type="file" name="uploadedBook" accept=".pdf,.epub,.mobi,.azw,.azw3,.djvu,.fb2" multiple)
+                    p#file-name.drop-zone__filename
+                    button.btn(type="submit") Upload Book
+    #toast.toast
+        .toast__spinner#toast-spinner
+        span#toast-msg
+    #context-menu.context-menu
+        button.context-menu__item.context-menu__item--status(data-status="want") Want to read
+        button.context-menu__item.context-menu__item--status(data-status="reading") Reading
+        button.context-menu__item.context-menu__item--status(data-status="read") Read
+        button.context-menu__item.context-menu__item--status(data-status="none") Clear status
+        .context-menu__sep
+        button#ctx-delete.context-menu__item.context-menu__item--danger Delete book
+
+block scripts
+    script.
+        const existingFiles = new Set(!{JSON.stringify(existingFiles)});
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('uploadedBook');
+        const fileName = document.getElementById('file-name');
+
+        const setFiles = files => {
+            if (!files.length) return;
+            const names = Array.from(files).map(f => f.name);
+            fileName.textContent = names.length === 1 ? names[0] : `${names.length} files selected`;
+            const dt = new DataTransfer();
+            Array.from(files).forEach(f => dt.items.add(f));
+            fileInput.files = dt.files;
+        };
+
+        fileInput.addEventListener('change', () => setFiles(fileInput.files));
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drop-zone--active'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-zone--active'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('drop-zone--active');
+            setFiles(e.dataTransfer.files);
+        });
+
+        const menu = document.getElementById('context-menu');
+        let activeId = null;
+        window._bookNookActiveId = null;
+        let menuTimeout = null;
+        const closeMenu = () => { menu.classList.remove('context-menu--visible'); clearTimeout(menuTimeout); };
+        const resetMenuTimer = () => { clearTimeout(menuTimeout); menuTimeout = setTimeout(closeMenu, 10000); };
+        menu.addEventListener('mouseenter', resetMenuTimer);
+        menu.addEventListener('mouseleave', resetMenuTimer);
+
+        document.querySelectorAll('.book-card').forEach(card => {
+            card.addEventListener('contextmenu', e => {
+                e.preventDefault();
+                activeId = card.dataset.id;
+                window._bookNookActiveId = activeId;
+                menu.classList.add('context-menu--visible');
+                resetMenuTimer();
+                const rect = card.getBoundingClientRect();
+                const mw = menu.offsetWidth, mh = menu.offsetHeight;
+                const x = rect.right + mw > window.innerWidth ? rect.left - mw : rect.right;
+                const y = rect.top + mh > window.innerHeight ? window.innerHeight - mh : rect.top;
+                menu.style.left = x + 'px';
+                menu.style.top  = y + 'px';
+            });
+        });
+
+        document.addEventListener('click', closeMenu);
+
+        document.querySelectorAll('.context-menu__item--status').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!activeId) return;
+                const status = btn.dataset.status;
+                await fetch(`/books/${activeId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status }),
+                });
+                const card = document.querySelector(`.book-card[data-id="${activeId}"]`);
+                if (card) card.dataset.status = status;
+            });
+        });
+
+        document.getElementById('ctx-delete').addEventListener('click', async () => {
+            if (!activeId) return;
+            await fetch(`/books/${activeId}`, { method: 'DELETE' });
+            document.querySelector(`.book-card[data-id="${activeId}"]`)?.remove();
+        });
+
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toast-msg');
+        const toastSpinner = document.getElementById('toast-spinner');
+        let errorTimer = null;
+
+        const showToast = msg => {
+            clearTimeout(errorTimer);
+            toast.classList.remove('toast--error');
+            toastSpinner.style.display = '';
+            toastMsg.textContent = msg;
+            toast.classList.add('toast--visible');
+        };
+        const showError = msg => {
+            clearTimeout(errorTimer);
+            toast.classList.add('toast--error');
+            toastSpinner.style.display = 'none';
+            toastMsg.textContent = msg;
+            toast.classList.add('toast--visible');
+            errorTimer = setTimeout(() => toast.classList.remove('toast--visible'), 5000);
+        };
+        const hideToast = () => { clearTimeout(errorTimer); toast.classList.remove('toast--visible'); };
+
+        document.getElementById('upload-form').addEventListener('submit', async e => {
+            e.preventDefault();
+            const files = Array.from(fileInput.files);
+            if (!files.length) return;
+
+            const seen = new Set();
+            const dupes = files.filter(f => {
+                if (existingFiles.has(f.name) || seen.has(f.name)) return true;
+                seen.add(f.name);
+                return false;
+            }).map(f => f.name);
+
+            if (dupes.length) {
+                const label = dupes.length === 1 ? `"${dupes[0]}"` : `${dupes.length} files`;
+                showError(`Already in library: ${label}`);
+                return;
+            }
+
+            const hasPdf = files.some(f => f.name.toLowerCase().endsWith('.pdf'));
+            showToast(hasPdf ? 'Converting PDF… this may take a moment' : 'Uploading…');
+            try {
+                await fetch('/upload', { method: 'POST', body: new FormData(e.target) });
+            } catch {}
+            hideToast();
+            location.href = '/';
+        });

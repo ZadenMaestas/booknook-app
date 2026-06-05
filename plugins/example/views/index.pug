@@ -1,0 +1,27 @@
+extends /views/layout.pug
+
+block title
+    title Notes — BookNook
+
+block content
+    main
+        .row
+            h1 Notes
+            if notes.length
+                ul.example-notes
+                    each note in notes
+                        li.example-note(data-id=note.id)
+                            span.example-note__book= note.bookTitle || 'Unknown book'
+                            p.example-note__text= note.note
+                            button.example-note__delete(data-id=note.id) ×
+            else
+                p.placeholder-text No notes yet.
+
+block scripts
+    script.
+        document.querySelectorAll('.example-note__delete').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await fetch(`/plugins/example/notes/${btn.dataset.id}`, { method: 'DELETE' });
+                btn.closest('li').remove();
+            });
+        });

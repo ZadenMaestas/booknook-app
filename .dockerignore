@@ -1,0 +1,10 @@
+node_modules/
+books/
+comics/
+cache/
+data/
+booknook.db
+identifier.sqlite
+.env
+.idea/
+*.md

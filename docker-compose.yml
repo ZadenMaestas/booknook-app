@@ -1,0 +1,17 @@
+services:
+  booknook:
+    build: .
+    ports:
+      - "${PORT:-3001}:3001"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /app/data
+    volumes:
+      # ── persistent user data ──────────────────────────────────────────────
+      - ./data:/app/data        # SQLite database
+      - ./books:/app/books      # uploaded book files
+      - ./comics:/app/comics    # uploaded comic files
+      - ./cache:/app/cache      # cover image cache
+    restart: unless-stopped

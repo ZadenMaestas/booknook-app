@@ -1,0 +1,358 @@
+extends layout
+
+block title
+    title Manage Library — BookNook
+
+block head
+    style.
+        .lib-tabs { display: flex; gap: 0; border-bottom: 1px solid rgba(196,122,59,.2); margin-bottom: 1.5rem; }
+        .lib-tab { padding: .5rem 1.25rem; font-size: .875rem; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-top: none; border-left: none; border-right: none; }
+        .lib-tab--active { color: var(--amber); border-bottom-color: var(--amber); }
+        .lib-section { display: none; }
+        .lib-section--active { display: block; }
+        .lib-toolbar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .lib-search { flex: 1; min-width: 14rem; max-width: 24rem; padding: .4rem .75rem; border: 1px solid rgba(196,122,59,.2); border-radius: 4px; background: var(--bg); color: var(--text); font-size: .875rem; }
+        .lib-bulk-bar { display: none; align-items: center; gap: .75rem; padding: .55rem 1rem; background: var(--bg-inverse); color: var(--text-on-inverse); border-radius: 6px; font-size: .875rem; flex-wrap: wrap; }
+        .lib-bulk-bar--visible { display: flex; }
+        .lib-bulk-count { font-weight: 600; }
+        .lib-bulk-btn { padding: .3rem .75rem; font-size: .8rem; border-radius: 4px; border: 1px solid rgba(245,239,228,.25); background: transparent; color: var(--text-on-inverse); cursor: pointer; }
+        .lib-bulk-btn:hover { background: rgba(245,239,228,.1); }
+        .lib-bulk-btn--primary { background: var(--amber); border-color: var(--amber); color: #fff; }
+        .lib-bulk-btn--primary:hover { opacity: .9; }
+        .lib-bulk-btn--danger { border-color: rgba(139,58,47,.5); color: #e07070; }
+        .lib-bulk-btn--danger:hover { background: rgba(139,58,47,.3); }
+        .lib-table-wrap { overflow-x: auto; }
+        .lib-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+        .lib-table th { text-align: left; padding: .5rem .75rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid rgba(196,122,59,.2); white-space: nowrap; }
+        .lib-table th:first-child, .lib-table td:first-child { width: 2rem; padding-right: 0; }
+        .lib-table td { padding: .5rem .75rem; border-bottom: 1px solid rgba(196,122,59,.08); vertical-align: middle; }
+        .lib-table tr:last-child td { border-bottom: none; }
+        .lib-table tr:hover td { background: var(--bg-alt); }
+        .lib-table tr.lib-row--selected td { background: rgba(196,122,59,.08); }
+        .lib-cb { width: 15px; height: 15px; cursor: pointer; accent-color: var(--amber); }
+        .lib-cover { width: 36px; height: 52px; object-fit: cover; border-radius: 3px; display: block; background: var(--bg-alt); }
+        .lib-cover-placeholder { width: 36px; height: 52px; border-radius: 3px; background: var(--bg-alt); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .8rem; color: var(--text-muted); }
+        .lib-actions { display: flex; gap: .4rem; white-space: nowrap; }
+        .lib-btn { padding: .3rem .7rem; font-size: .8rem; border-radius: 4px; border: 1px solid rgba(196,122,59,.25); background: var(--bg); color: var(--text); cursor: pointer; }
+        .lib-btn:hover { background: var(--bg-alt); }
+        .lib-btn--danger { color: var(--rust); border-color: rgba(139,58,47,.3); }
+        .lib-btn--danger:hover { background: var(--rust); color: var(--cream); }
+        .lib-empty { padding: 2rem; text-align: center; color: var(--text-muted); }
+        .lib-modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; align-items: center; justify-content: center; }
+        .lib-modal-backdrop--open { display: flex; }
+        .lib-modal { background: var(--bg); border: 1px solid rgba(196,122,59,.25); border-radius: 6px; padding: 1.5rem; width: 100%; max-width: 480px; box-shadow: 0 8px 32px rgba(0,0,0,.25); }
+        .lib-modal h2 { margin: 0 0 1.25rem; font-size: 1rem; font-weight: 600; }
+        .lib-field { margin-bottom: 1rem; }
+        .lib-field label { display: block; font-size: .8rem; font-weight: 500; color: var(--text-muted); margin-bottom: .3rem; }
+        .lib-field input[type="text"], .lib-field input[type="number"] { width: 100%; padding: .4rem .65rem; border: 1px solid rgba(196,122,59,.2); border-radius: 4px; background: var(--bg); color: var(--text); font-size: .875rem; box-sizing: border-box; }
+        .lib-field input:focus { outline: none; border-color: var(--amber); }
+        .lib-field input:disabled { opacity: .4; cursor: not-allowed; }
+        .lib-field-toggle { display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+        .lib-field-toggle input[type="checkbox"] { accent-color: var(--amber); cursor: pointer; }
+        .lib-field-toggle label { font-size: .8rem; font-weight: 500; color: var(--text-muted); cursor: pointer; margin: 0; }
+        .lib-bulk-note { font-size: .78rem; color: var(--text-muted); margin-bottom: 1rem; }
+        .lib-modal-footer { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1.25rem; }
+
+block content
+    main
+        .row
+            h1 Manage Library
+
+            .lib-tabs
+                button.lib-tab.lib-tab--active(data-tab="books") Books (#{books.length})
+                button.lib-tab(data-tab="comics") Comics (#{comics.length})
+
+            .lib-section.lib-section--active(id="section-books")
+                .lib-toolbar
+                    input.lib-search(type="search" placeholder="Filter books…" data-target="books-table")
+                .lib-table-wrap
+                    table.lib-table(id="books-table")
+                        thead
+                            tr
+                                th
+                                th
+                                th Title
+                                th Author
+                                th ISBN
+                                th Status
+                                th Actions
+                        tbody
+                            if books.length
+                                each book in books
+                                    tr(data-id=book.id data-type="book" data-text=(book.title + ' ' + (book.author || '') + ' ' + (book.isbn || '')).toLowerCase())
+                                        td
+                                        td
+                                            img.lib-cover(src='/cache/covers/'+book.id+'.jpg' alt='' onerror="this.style.display='none';this.nextElementSibling.style.display='flex'")
+                                            .lib-cover-placeholder(style='display:none')= book.title.charAt(0)
+                                        td= book.title
+                                        td= book.author || '—'
+                                        td= book.isbn || '—'
+                                        td= book.status || 'none'
+                                        td
+                                            .lib-actions
+                                                button.lib-btn.btn-edit(
+                                                    data-type="book"
+                                                    data-id=book.id
+                                                    data-title=book.title
+                                                    data-author=book.author||''
+                                                    data-isbn=book.isbn||''
+                                                ) Edit
+                                                button.lib-btn.lib-btn--danger.btn-delete(data-type="book" data-id=book.id) Delete
+                            else
+                                tr
+                                    td.lib-empty(colspan="7") No books yet
+
+            .lib-section(id="section-comics")
+                .lib-toolbar
+                    input.lib-search(type="search" placeholder="Filter comics…" data-target="comics-table")
+                    .lib-bulk-bar#bulk-bar
+                        span.lib-bulk-count#bulk-count 0 selected
+                        button.lib-bulk-btn.lib-bulk-btn--primary#bulk-edit-btn Edit Series / Year
+                        button.lib-bulk-btn.lib-bulk-btn--danger#bulk-delete-btn Delete selected
+                        button.lib-bulk-btn#bulk-deselect-btn Deselect all
+                .lib-table-wrap
+                    table.lib-table(id="comics-table")
+                        thead
+                            tr
+                                th
+                                    input.lib-cb#select-all(type="checkbox" title="Select all")
+                                th
+                                th Series
+                                th Year
+                                th Issue
+                                th Title
+                                th Pages
+                                th Status
+                                th Actions
+                        tbody
+                            if comics.length
+                                each comic in comics
+                                    tr(data-id=comic.id data-type="comic" data-text=((comic.series||'')+' '+(comic.title||'')+' '+(comic.issue||'')).toLowerCase())
+                                        td
+                                            input.lib-cb.row-cb(type="checkbox" data-id=comic.id)
+                                        td
+                                            img.lib-cover(src='/cache/covers/c'+comic.id+'.jpg' alt='' onerror="this.style.display='none';this.nextElementSibling.style.display='flex'")
+                                            .lib-cover-placeholder(style='display:none')= (comic.series || comic.title).charAt(0)
+                                        td= comic.series || '—'
+                                        td= comic.year || '—'
+                                        td= comic.issue ? '#' + comic.issue : '—'
+                                        td= comic.title
+                                        td= comic.pageCount
+                                        td= comic.status || 'none'
+                                        td
+                                            .lib-actions
+                                                button.lib-btn.btn-edit(
+                                                    data-type="comic"
+                                                    data-id=comic.id
+                                                    data-title=comic.title
+                                                    data-series=comic.series||''
+                                                    data-issue=comic.issue||''
+                                                    data-year=comic.year||''
+                                                ) Edit
+                                                button.lib-btn.lib-btn--danger.btn-delete(data-type="comic" data-id=comic.id) Delete
+                            else
+                                tr
+                                    td.lib-empty(colspan="9") No comics yet
+
+    #edit-modal.lib-modal-backdrop
+        .lib-modal
+            h2#modal-title Edit
+            #book-fields
+                .lib-field
+                    label Title
+                    input#edit-title(type="text")
+                .lib-field
+                    label Author
+                    input#edit-author(type="text")
+                .lib-field
+                    label ISBN
+                    input#edit-isbn(type="text")
+            #comic-fields(style="display:none")
+                .lib-field
+                    label Series
+                    input#edit-series(type="text")
+                .lib-field
+                    label Year
+                    input#edit-year(type="number" min="1800" max="2100" step="1")
+                .lib-field
+                    label Issue
+                    input#edit-issue(type="text")
+                .lib-field
+                    label Title
+                    input#edit-comic-title(type="text")
+            .lib-modal-footer
+                button.lib-btn#modal-cancel Cancel
+                button.btn#modal-save Save
+
+    #bulk-modal.lib-modal-backdrop
+        .lib-modal
+            h2#bulk-modal-title Bulk Edit Comics
+            p.lib-bulk-note Check a field to update it across all selected comics. Unchecked fields are left unchanged.
+            .lib-field
+                .lib-field-toggle
+                    input#bulk-cb-series(type="checkbox")
+                    label(for="bulk-cb-series") Series
+                input#bulk-series(type="text" placeholder="e.g. Batman" disabled)
+            .lib-field
+                .lib-field-toggle
+                    input#bulk-cb-year(type="checkbox")
+                    label(for="bulk-cb-year") Year
+                input#bulk-year(type="number" min="1800" max="2100" step="1" placeholder="e.g. 2008" disabled)
+            .lib-modal-footer
+                button.lib-btn#bulk-cancel Cancel
+                button.btn#bulk-save Save
+
+block scripts
+    script.
+        // Move modals to body to escape transform stack
+        document.body.appendChild(document.getElementById('edit-modal'));
+        document.body.appendChild(document.getElementById('bulk-modal'));
+
+        // ── Tabs ──────────────────────────────────────────────────────────────
+        document.querySelectorAll('.lib-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.lib-tab').forEach(t => t.classList.remove('lib-tab--active'));
+                document.querySelectorAll('.lib-section').forEach(s => s.classList.remove('lib-section--active'));
+                tab.classList.add('lib-tab--active');
+                document.getElementById('section-' + tab.dataset.tab).classList.add('lib-section--active');
+            });
+        });
+
+        // ── Search filter ─────────────────────────────────────────────────────
+        document.querySelectorAll('.lib-search').forEach(input => {
+            input.addEventListener('input', () => {
+                const q = input.value.toLowerCase();
+                document.querySelectorAll(`#${input.dataset.target} tbody tr[data-text]`).forEach(row => {
+                    row.style.display = row.dataset.text.includes(q) ? '' : 'none';
+                });
+            });
+        });
+
+        // ── Single delete ─────────────────────────────────────────────────────
+        document.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Delete this item?')) return;
+                const { type, id } = btn.dataset;
+                const url = type === 'book' ? `/books/${id}` : `/comics/${id}`;
+                const res = await fetch(url, { method: 'DELETE' });
+                if (res.ok) btn.closest('tr').remove();
+            });
+        });
+
+        // ── Single edit modal ─────────────────────────────────────────────────
+        const modal      = document.getElementById('edit-modal');
+        const bookFields  = document.getElementById('book-fields');
+        const comicFields = document.getElementById('comic-fields');
+        let editState = {};
+
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', () => {
+                editState = { ...btn.dataset };
+                document.getElementById('modal-title').textContent = editState.type === 'book' ? 'Edit Book' : 'Edit Comic';
+                if (editState.type === 'book') {
+                    bookFields.style.display  = '';
+                    comicFields.style.display = 'none';
+                    document.getElementById('edit-title').value  = editState.title  || '';
+                    document.getElementById('edit-author').value = editState.author || '';
+                    document.getElementById('edit-isbn').value   = editState.isbn   || '';
+                } else {
+                    bookFields.style.display  = 'none';
+                    comicFields.style.display = '';
+                    document.getElementById('edit-series').value      = editState.series || '';
+                    document.getElementById('edit-year').value        = editState.year   || '';
+                    document.getElementById('edit-issue').value       = editState.issue  || '';
+                    document.getElementById('edit-comic-title').value = editState.title  || '';
+                }
+                modal.classList.add('lib-modal-backdrop--open');
+            });
+        });
+
+        document.getElementById('modal-cancel').addEventListener('click', () => modal.classList.remove('lib-modal-backdrop--open'));
+        modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('lib-modal-backdrop--open'); });
+
+        document.getElementById('modal-save').addEventListener('click', async () => {
+            const { type, id } = editState;
+            const body = type === 'book'
+                ? { title: document.getElementById('edit-title').value.trim(), author: document.getElementById('edit-author').value.trim(), isbn: document.getElementById('edit-isbn').value.trim() }
+                : { title: document.getElementById('edit-comic-title').value.trim(), series: document.getElementById('edit-series').value.trim(), issue: document.getElementById('edit-issue').value.trim(), year: document.getElementById('edit-year').value.trim() };
+            const url = type === 'book' ? `/books/${id}` : `/comics/${id}`;
+            await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            modal.classList.remove('lib-modal-backdrop--open');
+            location.reload();
+        });
+
+        // ── Bulk selection ────────────────────────────────────────────────────
+        const bulkBar     = document.getElementById('bulk-bar');
+        const bulkCount   = document.getElementById('bulk-count');
+        const selectAll   = document.getElementById('select-all');
+        const rowCbs      = () => [...document.querySelectorAll('.row-cb')];
+        const checkedCbs  = () => rowCbs().filter(cb => cb.checked);
+
+        const updateBulkBar = () => {
+            const n = checkedCbs().length;
+            bulkCount.textContent = n + ' selected';
+            bulkBar.classList.toggle('lib-bulk-bar--visible', n > 0);
+            selectAll.indeterminate = n > 0 && n < rowCbs().length;
+            selectAll.checked = n > 0 && n === rowCbs().length;
+        };
+
+        document.getElementById('comics-table').addEventListener('change', e => {
+            if (!e.target.classList.contains('row-cb') && e.target !== selectAll) return;
+            if (e.target === selectAll) {
+                rowCbs().forEach(cb => {
+                    const visible = cb.closest('tr').style.display !== 'none';
+                    if (visible) cb.checked = selectAll.checked;
+                });
+            }
+            rowCbs().forEach(cb => cb.closest('tr').classList.toggle('lib-row--selected', cb.checked));
+            updateBulkBar();
+        });
+
+        document.getElementById('bulk-deselect-btn').addEventListener('click', () => {
+            rowCbs().forEach(cb => { cb.checked = false; cb.closest('tr').classList.remove('lib-row--selected'); });
+            selectAll.checked = false;
+            updateBulkBar();
+        });
+
+        // ── Bulk delete ───────────────────────────────────────────────────────
+        document.getElementById('bulk-delete-btn').addEventListener('click', async () => {
+            const selected = checkedCbs();
+            if (!selected.length || !confirm(`Delete ${selected.length} comic(s)?`)) return;
+            await Promise.all(selected.map(cb => fetch(`/comics/${cb.dataset.id}`, { method: 'DELETE' })));
+            selected.forEach(cb => cb.closest('tr').remove());
+            updateBulkBar();
+        });
+
+        // ── Bulk edit modal ───────────────────────────────────────────────────
+        const bulkModal = document.getElementById('bulk-modal');
+
+        const wireToggle = (cbId, inputId) => {
+            const cb = document.getElementById(cbId);
+            const input = document.getElementById(inputId);
+            cb.addEventListener('change', () => { input.disabled = !cb.checked; if (cb.checked) input.focus(); });
+        };
+        wireToggle('bulk-cb-series', 'bulk-series');
+        wireToggle('bulk-cb-year',   'bulk-year');
+
+        document.getElementById('bulk-edit-btn').addEventListener('click', () => {
+            const n = checkedCbs().length;
+            document.getElementById('bulk-modal-title').textContent = `Bulk Edit ${n} Comic${n === 1 ? '' : 's'}`;
+            ['bulk-cb-series','bulk-cb-year'].forEach(id => { document.getElementById(id).checked = false; });
+            ['bulk-series','bulk-year'].forEach(id => { const el = document.getElementById(id); el.value = ''; el.disabled = true; });
+            bulkModal.classList.add('lib-modal-backdrop--open');
+        });
+
+        document.getElementById('bulk-cancel').addEventListener('click', () => bulkModal.classList.remove('lib-modal-backdrop--open'));
+        bulkModal.addEventListener('click', e => { if (e.target === bulkModal) bulkModal.classList.remove('lib-modal-backdrop--open'); });
+
+        document.getElementById('bulk-save').addEventListener('click', async () => {
+            const ids = checkedCbs().map(cb => Number(cb.dataset.id));
+            if (!ids.length) return;
+            const updates = {};
+            if (document.getElementById('bulk-cb-series').checked) updates.series = document.getElementById('bulk-series').value.trim() || null;
+            if (document.getElementById('bulk-cb-year').checked)   updates.year   = document.getElementById('bulk-year').value ? parseInt(document.getElementById('bulk-year').value, 10) : null;
+            if (!Object.keys(updates).length) { bulkModal.classList.remove('lib-modal-backdrop--open'); return; }
+            await fetch('/comics/bulk', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, updates }) });
+            bulkModal.classList.remove('lib-modal-backdrop--open');
+            location.reload();
+        });

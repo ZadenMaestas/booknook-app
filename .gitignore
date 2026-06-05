@@ -19,6 +19,8 @@ comics/*
 !comics/.gitkeep
 cache/covers/*
 !cache/covers/.gitkeep
+# Personal docker instructions
+DevInstructions.MD
 
 # IDE
 .idea/*

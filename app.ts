@@ -18,7 +18,7 @@ import { fetchAndCacheCover, shrinkExistingCovers } from './utils/coverUtils';
 import type { Context } from 'hono';
 import type { AppVariables, Book, Comic, DbUser, ReadingProgress, ComicProgress } from './types/index';
 
-const DEV = process.env.NODE_ENV !== 'production';
+const DEV = false;
 const PORT = Number(process.env.PORT) || 3001;
 const COMICS_DIR = path.join(__dirname, 'comics');
 const COVER_DIR  = path.join(__dirname, 'cache/covers');

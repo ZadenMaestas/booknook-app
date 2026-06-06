@@ -154,10 +154,23 @@ block scripts
                 return;
             }
 
-            showToast('Uploading…');
-            try {
-                await fetch('/upload', { method: 'POST', body: new FormData(e.target) });
-            } catch {}
+            const totalBytes = files.reduce((s, f) => s + f.size, 0);
+            const fmtMB = b => (b / 1048576).toFixed(1) + ' MB';
+            showToast(`Uploading… 0 / ${fmtMB(totalBytes)}`);
+            await new Promise(resolve => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/upload');
+                xhr.upload.addEventListener('progress', e => {
+                    if (e.lengthComputable)
+                        showToast(`Uploading… ${fmtMB(e.loaded)} / ${fmtMB(e.total)}`);
+                });
+                xhr.addEventListener('load', () => {
+                    if (xhr.status >= 400) showError(`Upload failed (${xhr.status})`);
+                    resolve();
+                });
+                xhr.addEventListener('error', () => { showError('Upload failed — network error'); resolve(); });
+                xhr.send(new FormData(e.target));
+            });
             hideToast();
             location.href = '/';
         });

@@ -826,6 +826,7 @@ label[for="uploadedBook"] {
 }
 
 .reader__icon-btn:hover { background: var(--bg-alt); color: var(--text); }
+.reader__icon-btn.is-active { color: var(--amber); }
 
 .reader__progress {
   height: 3px;
@@ -924,6 +925,7 @@ label[for="uploadedBook"] {
 .reader__page-input:disabled { opacity: 0.4; }
 
 .reader__page-sep { opacity: 0.5; }
+.reader__page-right { display: none; }
 .reader__page-total { min-width: 24px; }
 
 .reader__page {

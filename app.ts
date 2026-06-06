@@ -572,5 +572,5 @@ await plugins.load(app, db);
 
 shrinkExistingCovers().catch(e => console.error('[covers]', e));
 
-Bun.serve({ fetch: app.fetch, port: PORT });
+Bun.serve({ fetch: app.fetch, port: PORT, maxRequestBodySize: 2 * 1024 * 1024 * 1024 });
 console.log(`Booknook listening on http://localhost:${PORT}`);

@@ -17,6 +17,10 @@ block content
                 p.reader__title= book.title
                 p.reader__author= book.author || 'Unknown'
             .reader__topbar-end
+                button#dual-btn.reader__icon-btn.is-active(title="Switch to single page")
+                    svg(xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
+                        rect(x="2" y="3" width="8" height="18" rx="1.5")
+                        rect(x="14" y="3" width="8" height="18" rx="1.5")
                 button#fs-toggle.reader__icon-btn(title="Fullscreen")
                     svg(xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
                         polyline#fs-icon-open(points="15 3 21 3 21 9")
@@ -33,6 +37,7 @@ block content
                 | Prev
             .reader__page-wrap
                 input#page-input.reader__page-input(type="number" min="1" aria-label="Go to location" disabled)
+                span#page-right.reader__page-right
                 span.reader__page-sep /
                 span#page-total.reader__page-total
             button#next.reader__nav-btn
@@ -51,8 +56,10 @@ block scripts
         const viewer       = document.getElementById('viewer');
         const pageInput    = document.getElementById('page-input');
         const pageTotal    = document.getElementById('page-total');
+        const pageRight    = document.getElementById('page-right');
         const progressFill = document.getElementById('progress-fill');
         const fsBtn        = document.getElementById('fs-toggle');
+        const dualBtn      = document.getElementById('dual-btn');
         const btnPrev      = document.getElementById('prev');
         const btnNext      = document.getElementById('next');
 
@@ -103,14 +110,14 @@ block scripts
         pageInput.disabled = true;
 
         let totalLoc = 0;
+        let isDualPage = true;
 
-        const getRendererCols = () =>
-            viewer.offsetHeight < viewer.offsetWidth && viewer.offsetWidth >= 840 ? 2 : 1;
-        let rendererCols = getRendererCols();
-        let subLocMode = false;
-        window.addEventListener('resize', () => {
-            const cols = getRendererCols();
-            if (cols !== rendererCols) { rendererCols = cols; subLocMode = false; }
+        dualBtn.addEventListener('click', () => {
+            isDualPage = !isDualPage;
+            viewer.renderer?.setAttribute('max-column-count', isDualPage ? '2' : '1');
+            dualBtn.classList.toggle('is-active', isDualPage);
+            dualBtn.title = isDualPage ? 'Switch to single page' : 'Switch to dual page';
+            updatePageCounter();
         });
 
         pageInput.addEventListener('keydown', e => {
@@ -133,16 +140,16 @@ block scripts
         const updatePageCounter = () => {
             const loc = viewer.lastLocation?.location;
             if (!loc) return;
-            if (rendererCols === 1 && loc.next === loc.current) subLocMode = true;
-            if (rendererCols === 1 && subLocMode) {
-                totalLoc = loc.total * 2;
-                pageInput.value = loc.current * 2 + (loc.next > loc.current ? 2 : 1);
-            } else {
-                totalLoc = loc.total;
-                pageInput.value = loc.current + 1;
-            }
+            totalLoc = loc.total;
+            pageInput.value = loc.current + 1;
             pageInput.max = totalLoc;
             pageTotal.textContent = totalLoc;
+            if (isDualPage && loc.next > loc.current) {
+                pageRight.textContent = '–' + (loc.next + 1);
+                pageRight.style.display = 'inline';
+            } else {
+                pageRight.style.display = 'none';
+            }
         };
 
         viewer.addEventListener('relocate', ({ detail }) => {

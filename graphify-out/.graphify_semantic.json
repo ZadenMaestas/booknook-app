@@ -1,0 +1,242 @@
+{
+  "nodes": [
+    {
+      "id": "readme_booknook",
+      "label": "Booknook",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_ts",
+      "label": "app.ts",
+      "file_type": "code",
+      "source_file": "app.ts",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "database_ts",
+      "label": "database.ts",
+      "file_type": "code",
+      "source_file": "database.ts",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "plugins_index_ts",
+      "label": "Plugin Registry",
+      "file_type": "code",
+      "source_file": "plugins/index.ts",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docker_compose_yml",
+      "label": "Docker Compose",
+      "file_type": "code",
+      "source_file": "docker-compose.yml",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "styles_md",
+      "label": "BookNook Styles",
+      "file_type": "document",
+      "source_file": "styles.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "ai_integration_plugin",
+      "label": "AI Integration Plugin",
+      "file_type": "code",
+      "source_file": "docs/plugins/ai-integration.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "annas_archive_plugin",
+      "label": "Anna's Archive Plugin",
+      "file_type": "code",
+      "source_file": "plugins/annas-archive/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "comic_dl_plugin",
+      "label": "Comic-DL Plugin",
+      "file_type": "code",
+      "source_file": "plugins/comic-dl/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "db_users",
+      "label": "users table",
+      "file_type": "concept",
+      "source_file": "docs/database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "db_books",
+      "label": "books table",
+      "file_type": "concept",
+      "source_file": "docs/database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "db_comics",
+      "label": "comics table",
+      "file_type": "concept",
+      "source_file": "docs/database.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "app_ts",
+      "target": "database_ts",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "app_ts",
+      "target": "plugins_index_ts",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "plugins_index_ts",
+      "target": "ai_integration_plugin",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/plugins/overview.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docker_compose_yml",
+      "target": "app_ts",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docker-compose.yml",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "database_ts",
+      "target": "db_users",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "database_ts",
+      "target": "db_books",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "database_ts",
+      "target": "db_comics",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/database.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ai_integration_plugin",
+      "target": "db_books",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/plugins/ai-integration.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "annas_archive_plugin",
+      "target": "app_ts",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "comic_dl_plugin",
+      "target": "db_comics",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "README.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 13349,
+  "output_tokens": 2051,
+  "failed_chunks": 0
+}

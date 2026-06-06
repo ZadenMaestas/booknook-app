@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import pug from 'pug';
@@ -13,10 +14,11 @@ import plugins from './plugins';
 import { openZip, getEntry, parseSpine, MIME } from './utils/epubStream';
 import { getPages, getPage, extractCover, parseComicInfo } from './utils/cbzUtils';
 import { getEpubData, lookupByTitle, resolveISBN } from './utils/bookUtils';
-import { normaliseToEpub, pdfFirstPageAsJpeg } from './utils/convertUtils';
+import { pdfFirstPageAsJpeg } from './utils/convertUtils';
 import { fetchAndCacheCover, shrinkExistingCovers } from './utils/coverUtils';
+import { getMigrationStatus, runPendingMigrations } from './utils/migrationRunner';
 import type { Context } from 'hono';
-import type { AppVariables, Book, Comic, DbUser, ReadingProgress, ComicProgress } from './types/index';
+import type { AppVariables, ApiKey, Book, Comic, DbUser, ReadingProgress, ComicProgress } from './types/index';
 
 const DEV = false;
 const PORT = Number(process.env.PORT) || 3001;
@@ -91,6 +93,83 @@ app.get('/login', c => {
 app.post('/login',  handleLogin);
 app.post('/logout', handleLogout);
 
+// ── API-key auth (machine clients) ───────────────────────────────────────────
+
+function requireApiKey(c: Context<{ Variables: AppVariables }>, next: () => Promise<Response | void>) {
+    const provided = c.req.header('X-API-Key');
+    if (!provided) return c.body('Unauthorized', 401);
+    // Check DB-managed keys first, fall back to legacy env var
+    const dbMatch = db.prepare('SELECT id FROM api_keys WHERE key = ?').get(provided);
+    if (dbMatch) return next();
+    const envKey = process.env.INGEST_API_KEY;
+    if (envKey && provided === envKey) return next();
+    return c.body('Unauthorized', 401);
+}
+
+// ── Comic ingest (called by ComicScraper userscript) ─────────────────────────
+
+app.post('/comics/ingest', requireApiKey, async c => {
+    const body = await c.req.parseBody({ all: true });
+    const raw  = body['comic'];
+    const fileList = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    const validFiles = fileList.filter((f): f is File => f instanceof File && /\.(cbz|cbr)$/i.test(f.name));
+
+    if (!validFiles.length) return c.body('No valid CBZ/CBR file in request', 400);
+
+    fs.mkdirSync(COMICS_DIR, { recursive: true });
+    fs.mkdirSync(path.join(__dirname, 'cache/covers'), { recursive: true });
+
+    const results: Array<{ file: string; status: 'imported' | 'duplicate' | 'error'; error?: string }> = [];
+
+    await Promise.allSettled(validFiles.map(async file => {
+        const safeName = path.basename(file.name);
+        if (!/^[\w.\- ]+\.(cbz|cbr)$/i.test(safeName)) {
+            results.push({ file: file.name, status: 'error', error: 'invalid filename' });
+            return;
+        }
+        const filePath = path.join(COMICS_DIR, safeName);
+
+        const existing = db.prepare('SELECT id FROM comics WHERE filePath = ?').get(filePath) as { id: number } | null;
+        if (existing) {
+            results.push({ file: file.name, status: 'duplicate' });
+            return;
+        }
+
+        try {
+            await Bun.write(filePath, file);
+            const info    = await parseComicInfo(filePath);
+            const pages   = await getPages(filePath);
+            const rawName = path.basename(file.name, path.extname(file.name));
+            const parsed  = parseComicFilename(rawName);
+            const title   = info?.title  || (parsed.series ? `${parsed.series} #${parsed.issue}` : rawName.replace(/[-_]/g, ' '));
+            const series  = info?.series || parsed.series;
+            const issue   = info?.issue  || parsed.issue;
+            const year    = parsed.year;
+
+            const result = db.prepare(
+                'INSERT OR IGNORE INTO comics (title, series, issue, year, filePath, pageCount) VALUES (?, ?, ?, ?, ?, ?)'
+            ).run(title, series, issue, year, filePath, pages.length) as { lastInsertRowid: number | bigint };
+
+            if (result.lastInsertRowid) {
+                const cover = await extractCover(filePath);
+                if (cover) fs.writeFileSync(path.join(__dirname, 'cache/covers', `c${result.lastInsertRowid}.jpg`), cover);
+                console.log(`[ingest] imported: ${file.name} → id=${result.lastInsertRowid}`);
+                results.push({ file: file.name, status: 'imported' });
+            } else {
+                results.push({ file: file.name, status: 'duplicate' });
+            }
+        } catch (e) {
+            const msg = (e as Error).message;
+            console.error('[ingest] failed:', file.name, msg);
+            try { fs.unlinkSync(filePath); } catch {}
+            results.push({ file: file.name, status: 'error', error: msg });
+        }
+    }));
+
+    const anyError = results.some(r => r.status === 'error');
+    return c.json(results, anyError ? 207 : 200);
+});
+
 // ── All routes below require auth ─────────────────────────────────────────────
 
 app.use('*', requireAuth);
@@ -121,15 +200,16 @@ app.post('/upload', async c => {
             const destPath = path.join(BOOKS_DIR, file.name);
             await Bun.write(destPath, file);
 
-            let title: string | null, author: string | null, isbn: string | null, pdfCover: Buffer | null = null;
+            let title: string | null, author: string | null, isbn: string | null, coverId: number | null = null, pdfCover: Buffer | null = null;
 
             if (ext === '.pdf') {
                 pdfCover = await pdfFirstPageAsJpeg(destPath).catch(() => null);
                 const rawName = path.basename(file.name, '.pdf');
                 const lookup = await lookupByTitle(rawName);
-                title  = lookup?.title  ?? rawName.replace(/[-_]/g, ' ');
-                author = lookup?.author ?? null;
-                isbn   = lookup?.isbn   ?? null;
+                title   = lookup?.title   ?? rawName.replace(/[-_]/g, ' ');
+                author  = lookup?.author  ?? null;
+                isbn    = lookup?.isbn    ?? null;
+                coverId = lookup?.coverId ?? null;
             } else {
                 const data = await getEpubData(destPath);
                 title  = data.title;
@@ -137,7 +217,7 @@ app.post('/upload', async c => {
                 isbn   = data.isbn ?? await resolveISBN(destPath, data.title, data.author);
             }
 
-            const bookPath = await normaliseToEpub(destPath);
+            const bookPath = destPath;
             const result = db.prepare('INSERT OR IGNORE INTO books (title, author, isbn, filePath) VALUES (?, ?, ?, ?)')
                 .run(title, author, isbn, bookPath) as { lastInsertRowid: number | bigint };
 
@@ -147,7 +227,7 @@ app.post('/upload', async c => {
                     fs.mkdirSync(COVER_DIR, { recursive: true });
                     fs.writeFileSync(path.join(COVER_DIR, `${id}.jpg`), pdfCover);
                 } else {
-                    fetchAndCacheCover(id, isbn, title, bookPath).catch(console.error);
+                    fetchAndCacheCover(id, isbn, title, bookPath, coverId).catch(console.error);
                 }
                 plugins.emit('bookUploaded', { id, title, author, isbn, filePath: bookPath });
             }
@@ -287,7 +367,9 @@ app.post('/comics/upload', async c => {
     fs.mkdirSync(path.join(__dirname, 'cache/covers'), { recursive: true });
 
     await Promise.allSettled(validFiles.map(async file => {
-        const filePath = path.join(COMICS_DIR, file.name);
+        const safeName = path.basename(file.name);
+        if (!/^[\w.\- ]+\.(cbz|cbr)$/i.test(safeName)) return;
+        const filePath = path.join(COMICS_DIR, safeName);
         await Bun.write(filePath, file);
         try {
             const info    = await parseComicInfo(filePath);
@@ -436,10 +518,11 @@ app.delete('/admin/users/:id', requireAdmin, c => {
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 app.get('/settings', c => {
-    const users = c.get('session').user!.isAdmin
-        ? db.prepare('SELECT id, username, created_at FROM users').all()
-        : null;
-    return render(c, 'settings', { saved: false, users, userError: c.req.query('error') || null });
+    const isAdmin = c.get('session').user!.isAdmin;
+    const users = isAdmin ? db.prepare('SELECT id, username, created_at FROM users').all() : null;
+    const apiKeys = isAdmin ? db.prepare('SELECT id, name, key, created_at FROM api_keys ORDER BY created_at DESC').all() as ApiKey[] : null;
+    const migrations = isAdmin ? getMigrationStatus() : null;
+    return render(c, 'settings', { saved: false, users, apiKeys, migrations, userError: c.req.query('error') || null });
 });
 
 app.post('/settings/password', async c => {
@@ -455,6 +538,32 @@ app.post('/settings/password', async c => {
         db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, user.id)
     );
     return render(c, 'settings', { saved: true });
+});
+
+// ── DB migrations ─────────────────────────────────────────────────────────────
+
+app.post('/admin/migrations/run', requireAdmin, c => {
+    const results = runPendingMigrations();
+    return c.json(results);
+});
+
+// ── API key management ────────────────────────────────────────────────────────
+
+app.post('/admin/api-keys', requireAdmin, async c => {
+    const body = await c.req.parseBody();
+    const name = (body['name'] as string | undefined)?.trim();
+    if (!name) return c.json({ error: 'Name is required' }, 400);
+    const key = 'bn_' + crypto.randomBytes(24).toString('hex');
+    const result = db.prepare('INSERT INTO api_keys (name, key) VALUES (?, ?)')
+        .run(name, key) as { lastInsertRowid: number | bigint };
+    const row = db.prepare('SELECT id, name, key, created_at FROM api_keys WHERE id = ?')
+        .get(result.lastInsertRowid) as ApiKey;
+    return c.json(row, 201);
+});
+
+app.delete('/admin/api-keys/:id', requireAdmin, c => {
+    db.prepare('DELETE FROM api_keys WHERE id = ?').run(c.req.param('id'));
+    return c.body(null, 204);
 });
 
 // ── Plugins & start ───────────────────────────────────────────────────────────

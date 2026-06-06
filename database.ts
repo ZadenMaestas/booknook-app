@@ -51,7 +51,12 @@ db.prepare(`CREATE TABLE IF NOT EXISTS comics (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 )`).run();
 
-try { db.prepare('ALTER TABLE comics ADD COLUMN year INTEGER').run(); } catch {}
+db.prepare(`CREATE TABLE IF NOT EXISTS api_keys (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  key        TEXT NOT NULL UNIQUE,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+)`).run();
 
 db.prepare(`CREATE TABLE IF NOT EXISTS comic_progress (
   user_id    INTEGER NOT NULL,

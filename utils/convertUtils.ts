@@ -19,21 +19,3 @@ export function pdfFirstPageAsJpeg(pdfPath: string): Promise<Buffer> {
     });
 }
 
-function pdfToEpub(pdfPath: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const epubPath = pdfPath.replace(/\.pdf$/i, '.epub');
-        const proc = spawn('ebook-convert', [pdfPath, epubPath]);
-        proc.on('close', code => {
-            if (code !== 0) return reject(new Error(`ebook-convert exited ${code}`));
-            try { fs.unlinkSync(pdfPath); } catch {}
-            resolve(epubPath);
-        });
-        proc.on('error', reject);
-    });
-}
-
-export async function normaliseToEpub(filePath: string): Promise<string> {
-    const ext = path.extname(filePath).toLowerCase();
-    if (ext === '.pdf') return await pdfToEpub(filePath);
-    return filePath;
-}

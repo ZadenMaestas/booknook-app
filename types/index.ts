@@ -88,6 +88,13 @@ export interface NavItem {
     _plugin?: string;
 }
 
+export interface ApiKey {
+    id: number;
+    name: string;
+    key: string;
+    created_at: string;
+}
+
 export interface PageData {
     data: Buffer;
     mime: string;

@@ -46,6 +46,7 @@ block scripts
 
         const BOOK_ID   = !{JSON.stringify(book.id)};
         const SAVED_CFI = !{JSON.stringify(progress && progress.cfi || null)};
+        const IS_PDF    = !{JSON.stringify(book.filePath.endsWith('.pdf'))};
 
         const viewer       = document.getElementById('viewer');
         const pageInput    = document.getElementById('page-input');
@@ -103,6 +104,15 @@ block scripts
 
         let totalLoc = 0;
 
+        const getRendererCols = () =>
+            viewer.offsetHeight < viewer.offsetWidth && viewer.offsetWidth >= 840 ? 2 : 1;
+        let rendererCols = getRendererCols();
+        let subLocMode = false;
+        window.addEventListener('resize', () => {
+            const cols = getRendererCols();
+            if (cols !== rendererCols) { rendererCols = cols; subLocMode = false; }
+        });
+
         pageInput.addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;
             const n = parseInt(pageInput.value, 10);
@@ -120,15 +130,24 @@ block scripts
             });
         };
 
-        viewer.addEventListener('relocate', ({ detail }) => {
-            const { fraction, location: loc, cfi } = detail;
-            progressFill.style.width = (fraction * 100) + '%';
-            if (loc) {
+        const updatePageCounter = () => {
+            const loc = viewer.lastLocation?.location;
+            if (!loc) return;
+            if (rendererCols === 1 && loc.next === loc.current) subLocMode = true;
+            if (rendererCols === 1 && subLocMode) {
+                totalLoc = loc.total * 2;
+                pageInput.value = loc.current * 2 + (loc.next > loc.current ? 2 : 1);
+            } else {
                 totalLoc = loc.total;
-                pageInput.max = loc.total;
-                pageInput.value = loc.current;
-                pageTotal.textContent = loc.total;
+                pageInput.value = loc.current + 1;
             }
+            pageInput.max = totalLoc;
+            pageTotal.textContent = totalLoc;
+        };
+
+        viewer.addEventListener('relocate', ({ detail }) => {
+            const { fraction, cfi } = detail;
+            progressFill.style.width = (fraction * 100) + '%';
             saveProgress(cfi, fraction);
         });
 
@@ -171,9 +190,19 @@ block scripts
                 btnPrev.disabled = false;
                 btnNext.disabled = false;
                 pageInput.disabled = false;
-                // Only restore if it's a real EPUB CFI string
+                // Listen on the renderer (not foliate-view) to get `reason`.
+                // Skip 'anchor' (font-load / resize re-anchors) — those auto-relocates
+                // shift position by ~1 page and corrupt the counter.
+                // foliate-view's own listener runs first and updates lastLocation before ours.
+                viewer.renderer.addEventListener('relocate', ({ detail: { reason } }) => {
+                    if (reason === 'anchor' || reason === 'selection') return;
+                    updatePageCounter();
+                });
                 if (SAVED_CFI && SAVED_CFI.startsWith('epubcfi(')) {
                     viewer.goTo(SAVED_CFI);
+                } else if (SAVED_CFI && IS_PDF) {
+                    const fraction = parseFloat(SAVED_CFI);
+                    if (!isNaN(fraction) && fraction > 0) viewer.goToFraction(fraction);
                 } else {
                     viewer.renderer.next();
                 }

@@ -52,6 +52,70 @@ block head
         .lib-field-toggle label { font-size: .8rem; font-weight: 500; color: var(--text-muted); cursor: pointer; margin: 0; }
         .lib-bulk-note { font-size: .78rem; color: var(--text-muted); margin-bottom: 1rem; }
         .lib-modal-footer { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1.25rem; }
+        @media (max-width: 768px) {
+            .lib-search { max-width: none; }
+            .lib-modal { max-width: calc(100% - 2rem); }
+            /* Hide less-important columns on tablet */
+            #books-table th:nth-child(5), #books-table td:nth-child(5) { display: none; }
+            #comics-table th:nth-child(7), #comics-table td:nth-child(7) { display: none; }
+        }
+        @media (max-width: 480px) {
+            /* Card layout: convert table rows to grid cards */
+            .lib-table-wrap { overflow-x: unset; }
+            .lib-table, .lib-table tbody { display: block; }
+            .lib-table thead { display: none; }
+            .lib-table tr:hover td { background: transparent; }
+            .lib-table tr { border-bottom: 1px solid rgba(196,122,59,.1); }
+            .lib-table tr:last-child { border-bottom: none; }
+            .lib-table td { padding: 0; border: none; background: transparent; vertical-align: top; }
+            .lib-empty { padding: 1.5rem 0; }
+
+            /* Books: 2-col card [cover | content], actions full-width below */
+            #books-table tr { display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto auto; column-gap: .75rem; row-gap: .15rem; padding: .75rem 0; align-items: start; }
+            #books-table td:nth-child(1) { display: none; }
+            #books-table td:nth-child(2) { grid-column: 1; grid-row: 1 / 3; }
+            #books-table td:nth-child(3) { grid-column: 2; grid-row: 1; font-weight: 600; line-height: 1.35; font-size: .875rem; }
+            #books-table td:nth-child(4) { grid-column: 2; grid-row: 2; font-size: .8rem; color: var(--text-muted); }
+            #books-table td:nth-child(5) { display: none; }
+            #books-table td:nth-child(6) { display: none; }
+            #books-table td:nth-child(7) { grid-column: 1 / -1; grid-row: 3; padding-top: .5rem; }
+            #books-table td:only-child { grid-column: 1 / -1; }
+
+            /* Comics: 3-col card [checkbox | cover | content], actions full-width below */
+            #comics-table tr { display: grid; grid-template-columns: 1.25rem 44px 1fr; grid-template-rows: auto auto auto; column-gap: .65rem; row-gap: .15rem; padding: .75rem 0; align-items: start; }
+            #comics-table td:nth-child(1) { grid-column: 1; grid-row: 1 / 3; display: flex; align-items: flex-start; padding-top: .15rem; }
+            #comics-table td:nth-child(2) { grid-column: 2; grid-row: 1 / 3; }
+            #comics-table td:nth-child(3) { grid-column: 3; grid-row: 1; font-weight: 600; line-height: 1.35; font-size: .875rem; }
+            #comics-table td:nth-child(4) { display: none; }
+            #comics-table td:nth-child(5) { display: none; }
+            #comics-table td:nth-child(6) { grid-column: 3; grid-row: 2; font-size: .8rem; color: var(--text-muted); }
+            #comics-table td:nth-child(7) { display: none; }
+            #comics-table td:nth-child(8) { display: none; }
+            #comics-table td:nth-child(9) { grid-column: 1 / -1; grid-row: 3; padding-top: .5rem; }
+            #comics-table td:only-child { grid-column: 1 / -1; }
+
+            /* Slightly bigger covers in card view */
+            .lib-cover, .lib-cover-placeholder { width: 40px; height: 58px; }
+
+            /* Bigger tap targets for action buttons */
+            .lib-btn { padding: .4rem .85rem; font-size: .82rem; }
+            .lib-actions { flex-wrap: wrap; gap: .4rem; white-space: normal; }
+
+            /* Bulk bar: full-width count + equal-width buttons */
+            .lib-bulk-bar { flex-wrap: wrap; row-gap: .4rem; }
+            .lib-bulk-count { width: 100%; }
+            .lib-bulk-btn { flex: 1; min-width: 0; text-align: center; }
+
+            /* Modal as bottom sheet */
+            .lib-modal-backdrop { align-items: flex-end; }
+            .lib-modal { border-radius: 12px 12px 0 0; max-width: 100%; margin: 0; padding: 1.25rem 1rem calc(1.5rem + env(safe-area-inset-bottom, 0px)); }
+            .lib-modal::before { content: ''; display: block; width: 36px; height: 4px; border-radius: 2px; background: rgba(196,122,59,.25); margin: -0.5rem auto .75rem; }
+            .lib-modal h2 { margin-bottom: 1rem; }
+            .lib-modal-footer { margin-top: 1rem; }
+
+            /* Toolbar: full-width search */
+            .lib-search { min-width: 0; max-width: none; }
+        }
 
 block content
     main

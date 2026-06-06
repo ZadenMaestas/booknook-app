@@ -57,7 +57,7 @@ class PluginRegistry {
 
     private async _loadOne(app: AppHono, db: Database, name: string): Promise<void> {
         const pluginDir = path.join(PLUGINS_DIR, name);
-        if (name === "example" || name === "ai-integration")
+        if (name === "example")
             return;
         try {
             const tsPath = path.join(pluginDir, 'plugin.ts');

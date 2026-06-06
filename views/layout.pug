@@ -98,6 +98,11 @@ html
                 setTimeout(() => document.dispatchEvent(new CustomEvent('layout-changed')), 260);
             });
             backdrop.addEventListener('click', closeSidebar);
+            document.querySelectorAll('.sidebar__link').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (backdrop.classList.contains('sidebar-backdrop--visible')) closeSidebar();
+                });
+            });
             const toggle = document.getElementById('theme-toggle');
             const updateToggle = () => {
                 toggle.textContent = html.getAttribute('data-theme') === 'dark' ? '◑' : '◐';

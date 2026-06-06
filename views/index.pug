@@ -154,8 +154,7 @@ block scripts
                 return;
             }
 
-            const hasPdf = files.some(f => f.name.toLowerCase().endsWith('.pdf'));
-            showToast(hasPdf ? 'Converting PDF… this may take a moment' : 'Uploading…');
+            showToast('Uploading…');
             try {
                 await fetch('/upload', { method: 'POST', body: new FormData(e.target) });
             } catch {}

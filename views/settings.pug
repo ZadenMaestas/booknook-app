@@ -55,6 +55,66 @@ block content
                             label(for='new-password') Password
                             input#new-password(type='password' name='password' required minlength='6')
                         button.btn(type='submit') Add user
+            if user.isAdmin && apiKeys !== null
+                .settings-section
+                    h2 API keys
+                    p.settings-meta.settings-meta--gap Used by machine clients (e.g. ComicScraper) via #[code X-API-Key] header.
+                    #api-key-reveal-wrap(hidden)
+                        .api-key-reveal
+                            p.api-key-reveal__label New key — copy it now, it won't be shown again:
+                            .api-key-reveal__row
+                                code#api-key-reveal-value.api-key-mono
+                                button.btn-ghost.js-copy-key(type='button') Copy
+                    if apiKeys.length
+                        table.admin-table#api-keys-table
+                            thead
+                                tr
+                                    th Name
+                                    th Key
+                                    th Created
+                                    th
+                            tbody
+                                each k in apiKeys
+                                    tr(data-key-id=k.id)
+                                        td= k.name
+                                        td
+                                            code.api-key-mono= k.key.slice(0, 10) + '••••••••••••••••'
+                                        td.admin-table__date= k.created_at.slice(0, 10)
+                                        td.admin-table__actions
+                                            button.btn-danger.js-revoke-key Revoke
+                    form.settings-form#api-key-form
+                        .form-field
+                            label(for='key-name') Name
+                            input#key-name(type='text' name='name' required autocomplete='off' placeholder='e.g. ComicScraper')
+                        button.btn(type='submit') Generate key
+
+            if user.isAdmin && migrations !== null
+                .settings-section
+                    h2 Database
+                    - const pending = migrations.filter(m => m.status === 'pending')
+                    if pending.length
+                        p.settings-meta.settings-meta--gap
+                            | #[strong= pending.length] pending migration#{pending.length !== 1 ? 's' : ''} — run to bring the schema up to date.
+                    else
+                        p.settings-meta.settings-meta--gap Schema is up to date.
+                    table.admin-table#migrations-table
+                        thead
+                            tr
+                                th Migration
+                                th Name
+                                th Status
+                                th Applied
+                        tbody
+                            each m in migrations
+                                tr(data-migration-id=m.id)
+                                    td
+                                        code.api-key-mono= m.id
+                                    td= m.name
+                                    td
+                                        span(class='migration-badge migration-badge--' + m.status)= m.status
+                                    td.admin-table__date= m.applied_at ? m.applied_at.slice(0, 16).replace('T', ' ') : '—'
+                    if pending.length
+                        button.btn#run-migrations-btn(type='button') Run #{pending.length} pending migration#{pending.length !== 1 ? 's' : ''}
 
 block scripts
     if user.isAdmin
@@ -66,4 +126,82 @@ block scripts
                     await fetch(`/admin/users/${row.dataset.userId}`, { method: 'DELETE' });
                     row.remove();
                 });
+            });
+
+            // API key management
+            const keyForm    = document.getElementById('api-key-form');
+            const revealWrap = document.getElementById('api-key-reveal-wrap');
+            const revealVal  = document.getElementById('api-key-reveal-value');
+            const keysTable  = document.getElementById('api-keys-table');
+
+            if (keyForm) {
+                keyForm.addEventListener('submit', async e => {
+                    e.preventDefault();
+                    const data = new FormData(keyForm);
+                    const res  = await fetch('/admin/api-keys', { method: 'POST', body: data });
+                    if (!res.ok) return;
+                    const key = await res.json();
+                    // Show reveal banner
+                    revealVal.textContent = key.key;
+                    revealWrap.hidden = false;
+                    revealWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    // Append row to table
+                    let tbody = keysTable?.querySelector('tbody');
+                    if (!tbody) {
+                        // Table didn't exist (no keys yet) — build it
+                        const tbl = document.createElement('table');
+                        tbl.className = 'admin-table';
+                        tbl.id = 'api-keys-table';
+                        tbl.innerHTML = '<thead><tr><th>Name</th><th>Key</th><th>Created</th><th></th></tr></thead><tbody></tbody>';
+                        keyForm.before(tbl);
+                        tbody = tbl.querySelector('tbody');
+                    }
+                    const tr = document.createElement('tr');
+                    tr.dataset.keyId = key.id;
+                    tr.innerHTML = `<td>${key.name}</td><td><code class="api-key-mono">${key.key.slice(0,10)}••••••••••••••••</code></td><td class="admin-table__date">${key.created_at.slice(0,10)}</td><td class="admin-table__actions"><button class="btn-danger js-revoke-key">Revoke</button></td>`;
+                    tbody.prepend(tr);
+                    attachRevoke(tr.querySelector('.js-revoke-key'));
+                    keyForm.reset();
+                });
+            }
+
+            document.querySelector('.js-copy-key')?.addEventListener('click', () => {
+                navigator.clipboard.writeText(revealVal?.textContent || '');
+            });
+
+            function attachRevoke(btn) {
+                btn.addEventListener('click', async () => {
+                    const row = btn.closest('tr');
+                    if (!confirm('Revoke this key? Any clients using it will stop working.')) return;
+                    await fetch(`/admin/api-keys/${row.dataset.keyId}`, { method: 'DELETE' });
+                    row.remove();
+                });
+            }
+            document.querySelectorAll('.js-revoke-key').forEach(attachRevoke);
+
+            // DB migrations
+            document.getElementById('run-migrations-btn')?.addEventListener('click', async function () {
+                this.disabled = true;
+                this.textContent = 'Running…';
+                const res = await fetch('/admin/migrations/run', { method: 'POST' });
+                const results = await res.json();
+                const tbody = document.querySelector('#migrations-table tbody');
+                for (const r of results) {
+                    const row = document.querySelector(`tr[data-migration-id="${r.id}"]`);
+                    if (!row) continue;
+                    const badge = row.querySelector('.migration-badge');
+                    const dateCell = row.querySelector('.admin-table__date');
+                    if (r.success) {
+                        badge.className = 'migration-badge migration-badge--applied';
+                        badge.textContent = 'applied';
+                        dateCell.textContent = new Date().toISOString().slice(0, 16).replace('T', ' ');
+                    } else {
+                        badge.className = 'migration-badge migration-badge--failed';
+                        badge.textContent = 'failed';
+                        row.title = r.error || 'unknown error';
+                    }
+                }
+                const anyFailed = results.some(r => !r.success);
+                if (!anyFailed) this.remove();
+                else { this.disabled = false; this.textContent = 'Retry failed migrations'; }
             });

@@ -11,7 +11,7 @@
       
       
       
-        <link rel="prev" href="../overview/">
+        <link rel="prev" href="../../features/comics/">
       
       
         <link rel="next" href="../ai-integration/">
@@ -25,7 +25,7 @@
     
     
       
-        <title>Writing a Plugin - Booknook</title>
+        <title>Plugin System - Booknook</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#writing-a-plugin" class="md-skip">
+        <a href="#plugin-system" class="md-skip">
           Skip to content
         </a>
       
@@ -112,7 +112,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Writing a Plugin
+              Plugin System
             
           </span>
         </div>
@@ -507,34 +507,6 @@
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../overview/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overview
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
     
   
   
@@ -554,7 +526,7 @@
   <span class="md-ellipsis">
     
   
-    Writing a Plugin
+    Plugin System
   
 
     
@@ -572,7 +544,7 @@
   <span class="md-ellipsis">
     
   
-    Writing a Plugin
+    Plugin System
   
 
     
@@ -598,6 +570,29 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#bundled-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bundled plugins
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-a-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing a plugin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Writing a plugin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#file-structure" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -607,8 +602,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#minimal-plugin" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -618,8 +613,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#the-register-context" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -729,15 +724,9 @@
     </nav>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#static-assets" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Static assets
-      
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -877,6 +866,29 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#bundled-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bundled plugins
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#writing-a-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing a plugin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Writing a plugin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
   <a href="#file-structure" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -886,8 +898,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#minimal-plugin" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -897,8 +909,8 @@
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
+        
+          <li class="md-nav__item">
   <a href="#the-register-context" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1008,15 +1020,9 @@
     </nav>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#static-assets" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Static assets
-      
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1051,16 +1057,34 @@
   
 
 
-<h1 id="writing-a-plugin">Writing a Plugin</h1>
+<h1 id="plugin-system">Plugin System</h1>
+<p>Plugins are loaded at startup from subdirectories of <code>plugins/</code>. Any folder containing a <code>plugin.ts</code> or <code>plugin.js</code> is loaded (the <code>example/</code> folder is always skipped). Each plugin's <code>register()</code> function receives a context object with access to the database, router, and extension hooks. If <code>register()</code> throws, the plugin is skipped and the app continues normally.</p>
+<h2 id="bundled-plugins">Bundled plugins</h2>
+<table>
+<thead>
+<tr>
+<th>Plugin</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../ai-integration/">ai-integration</a></td>
+<td>AI-powered book recommendations via Google Gemini</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="writing-a-plugin">Writing a plugin</h2>
 <p>Plugins live in <code>plugins/&lt;name&gt;/</code> and are loaded automatically at startup.</p>
-<h2 id="file-structure">File structure</h2>
+<h3 id="file-structure">File structure</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>plugins/
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  my-plugin/
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    plugin.ts        ← required (or plugin.js)
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    views/           ← optional Pug templates
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    public/          ← optional static assets (CSS, JS, images)
 </code></pre></div>
-<h2 id="minimal-plugin">Minimal plugin</h2>
+<h3 id="minimal-plugin">Minimal plugin</h3>
 <p><code>plugin.ts</code> must export a default object with a <code>name</code> and a <code>register</code> function:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">import</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">PluginContext</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;../index&#39;</span><span class="p">;</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
@@ -1073,14 +1097,15 @@
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="p">},</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">};</span>
 </code></pre></div>
-<h2 id="the-register-context">The <code>register</code> context</h2>
-<h3 id="db"><code>db</code></h3>
-<p>A <code>bun:sqlite</code> <code>Database</code> instance connected to the main <code>booknook.db</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nx">db</span><span class="p">.</span><span class="nx">prepare</span><span class="p">(</span><span class="s1">&#39;CREATE TABLE IF NOT EXISTS myplugin_items (id INTEGER PRIMARY KEY, value TEXT)&#39;</span><span class="p">).</span><span class="nx">run</span><span class="p">();</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">rows</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">db</span><span class="p">.</span><span class="nx">prepare</span><span class="p">(</span><span class="s1">&#39;SELECT * FROM myplugin_items&#39;</span><span class="p">).</span><span class="nx">all</span><span class="p">();</span>
+<h3 id="the-register-context">The <code>register</code> context</h3>
+<h4 id="db"><code>db</code></h4>
+<p>The <a href="https://sequelize.org">Sequelize</a> instance connected to the main <code>booknook.db</code>. Use it to define models or run raw queries.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// Raw query</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">await</span><span class="w"> </span><span class="nx">db</span><span class="p">.</span><span class="nx">query</span><span class="p">(</span><span class="s1">&#39;CREATE TABLE IF NOT EXISTS myplugin_items (id INTEGER PRIMARY KEY, value TEXT)&#39;</span><span class="p">);</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">rows</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">db</span><span class="p">.</span><span class="nx">query</span><span class="p">(</span><span class="s1">&#39;SELECT * FROM myplugin_items&#39;</span><span class="p">);</span>
 </code></pre></div>
-<p>Always prefix your table names to avoid collisions. Use <code>CREATE TABLE IF NOT EXISTS</code> so they survive restarts.</p>
-<h3 id="router"><code>router</code></h3>
+<p>Always prefix your table names to avoid collisions.</p>
+<h4 id="router"><code>router</code></h4>
 <p>A Hono router automatically mounted at <code>/plugins/&lt;folder-name&gt;</code>. Add your routes here.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nx">router</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">c</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">render</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">pluginDir</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;views/index.pug&#39;</span><span class="p">),</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">items</span><span class="o">:</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="p">});</span>
@@ -1091,14 +1116,14 @@
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">c</span><span class="p">.</span><span class="nx">json</span><span class="p">({</span><span class="w"> </span><span class="nx">ok</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="mf">201</span><span class="p">);</span>
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">});</span>
 </code></pre></div>
-<h3 id="renderc-templatepath-locals"><code>render(c, templatePath, locals?)</code></h3>
+<h4 id="renderc-templatepath-locals"><code>render(c, templatePath, locals?)</code></h4>
 <p>Renders a Pug template with the standard layout variables pre-populated (<code>user</code>, <code>currentPath</code>, plugin nav items, etc.).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">return</span><span class="w"> </span><span class="nx">render</span><span class="p">(</span><span class="nx">c</span><span class="p">,</span><span class="w"> </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">pluginDir</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;views/page.pug&#39;</span><span class="p">),</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="p">});</span>
 </code></pre></div>
 <p>Always use the absolute <code>pluginDir</code>-based path — relative paths won't resolve from inside the registry.</p>
-<h3 id="plugindir"><code>pluginDir</code></h3>
+<h4 id="plugindir"><code>pluginDir</code></h4>
 <p>Absolute path to your plugin folder.</p>
-<h3 id="addnavitemitem"><code>addNavItem(item)</code></h3>
+<h4 id="addnavitemitem"><code>addNavItem(item)</code></h4>
 <p>Adds a link to the sidebar navigation.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nx">addNavItem</span><span class="p">({</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;My Plugin&#39;</span><span class="p">,</span>
@@ -1106,18 +1131,18 @@
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="sb">`&lt;svg width=&quot;18&quot; height=&quot;18&quot; .../&gt;`</span><span class="p">,</span><span class="w">  </span><span class="c1">// optional inline SVG</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">});</span>
 </code></pre></div>
-<h3 id="addstylesheethref-addscriptsrc"><code>addStylesheet(href)</code> / <code>addScript(src)</code></h3>
-<p>Injects a <code>&lt;link&gt;</code> or <code>&lt;script&gt;</code> tag into every page. Serve files from <code>public/</code> — they're automatically mounted at <code>/plugins/&lt;name&gt;/</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nx">addStylesheet</span><span class="p">(</span><span class="s1">&#39;/plugins/my-plugin/styles.css&#39;</span><span class="p">);</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nx">addScript</span><span class="p">(</span><span class="s1">&#39;/plugins/my-plugin/client.js&#39;</span><span class="p">);</span>
+<h4 id="addstylesheethref-addscriptsrc"><code>addStylesheet(href)</code> / <code>addScript(src)</code></h4>
+<p>Injects a <code>&lt;link&gt;</code> or <code>&lt;script&gt;</code> tag into every page. Serve files from <code>public/</code> — they're automatically mounted at <code>/plugins/&lt;name&gt;/static/</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nx">addStylesheet</span><span class="p">(</span><span class="s1">&#39;/plugins/my-plugin/static/styles.css&#39;</span><span class="p">);</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nx">addScript</span><span class="p">(</span><span class="s1">&#39;/plugins/my-plugin/static/client.js&#39;</span><span class="p">);</span>
 </code></pre></div>
-<h3 id="onevent-handler"><code>on(event, handler)</code></h3>
+<h4 id="onevent-handler"><code>on(event, handler)</code></h4>
 <p>Subscribe to lifecycle events emitted by the core app.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;bookDeleted&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">({</span><span class="w"> </span><span class="nx">id</span><span class="p">,</span><span class="w"> </span><span class="nx">book</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="nx">db</span><span class="p">.</span><span class="nx">prepare</span><span class="p">(</span><span class="s1">&#39;DELETE FROM myplugin_items WHERE book_id = ?&#39;</span><span class="p">).</span><span class="nx">run</span><span class="p">(</span><span class="nx">id</span><span class="p">);</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="nx">db</span><span class="p">.</span><span class="nx">query</span><span class="p">(</span><span class="s1">&#39;DELETE FROM myplugin_items WHERE book_id = ?&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">replacements</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="nx">id</span><span class="p">]</span><span class="w"> </span><span class="p">});</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="p">});</span>
 </code></pre></div>
-<h4 id="available-events">Available events</h4>
+<h5 id="available-events">Available events</h5>
 <table>
 <thead>
 <tr>
@@ -1139,13 +1164,11 @@
 </tr>
 </tbody>
 </table>
-<h2 id="static-assets">Static assets</h2>
-<p>Files in <code>public/</code> are served at <code>/plugins/&lt;name&gt;/</code> automatically. They are also available at <code>/plugins/&lt;name&gt;/static/</code> as an alias.</p>
 <h2 id="tips">Tips</h2>
 <ul>
 <li>Prefix all DB table names: <code>myplugin_notes</code>, not <code>notes</code>.</li>
 <li>Errors thrown from <code>register()</code> are caught and logged — your plugin is skipped, but the app keeps running.</li>
-<li>If your plugin needs an external process or binary, start setup in <code>register()</code> so it's ready by the first request. Use a flag to avoid re-running setup on every call.</li>
+<li>If your plugin needs an external process or binary, start setup in <code>register()</code> so it's ready by the first request.</li>
 </ul>
 
 

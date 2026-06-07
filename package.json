@@ -7,7 +7,9 @@
     "start": "bun run app.ts",
     "dev": "bun --watch run app.ts",
     "typecheck": "tsc --noEmit",
-    "test:reader": "bun run tests/reader.ts",
+    "test": "bun test ./tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
     "landing:dev": "bun run --cwd landing dev",
     "landing:build": "bun run --cwd landing build",
     "landing:deploy": "bun run --cwd landing deploy"
@@ -22,19 +24,18 @@
     "dotenv": "^17.4.2",
     "epub2": "^3.0.2",
     "hono": "^4.12.23",
-    "livereload": "^0.10.3",
     "pdfjs-dist": "5.5.207",
     "pug": "^3.0.4",
     "sequelize": "^6.37.8",
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^25.9.1",
     "@types/pug": "^2.0.10",
     "@types/sequelize": "^6.12.0",
     "bun-types": "^1.3.14",
-    "puppeteer-core": "^25.1.0",
     "typescript": "^6.0.3"
   }
 }

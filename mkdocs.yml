@@ -1,7 +1,7 @@
 site_name: Booknook
 site_description: Self-hosted personal library server for ebooks and comics
-repo_url: https://github.com/yourusername/booknook
-repo_name: booknook
+repo_url: https://github.com/zadenmaestas/booknook-app
+repo_name: booknook-app
 
 theme:
   name: material
@@ -32,8 +32,7 @@ nav:
       - Books: features/books.md
       - Comics: features/comics.md
   - Plugins:
-      - Overview: plugins/overview.md
-      - Writing a Plugin: plugins/writing-plugins.md
+      - Plugin System: plugins/writing-plugins.md
       - AI Integration: plugins/ai-integration.md
   - Deployment: deployment.md
   - Database Schema: database.md

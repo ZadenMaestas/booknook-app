@@ -5,21 +5,22 @@
 | Format | Notes |
 |---|---|
 | `.epub` | Native — metadata and cover extracted directly |
-| `.pdf` | Converted to EPUB at upload time; cover extracted from first page |
-| `.mobi`, `.azw`, `.azw3` | Accepted but not converted |
-| `.djvu`, `.fb2` | Accepted but not converted |
+| `.pdf` | Cover extracted from first page via `pdftoppm`; metadata looked up by title via Google Books |
+| `.mobi`, `.azw`, `.azw3` | Accepted and stored |
+| `.djvu`, `.fb2` | Accepted and stored |
 
 ## Uploading
 
-Drag and drop one or more files onto the library page, or use the upload button. Multiple files are processed in parallel. Duplicate files (same path) are silently skipped.
+Drag and drop one or more files onto the library page, or use the upload button. Multiple files are processed in parallel.
 
 On upload, Booknook:
 
 1. Saves the file to `books/`
-2. Extracts title, author, and ISBN from the file metadata
-3. For PDFs: looks up metadata by filename via the Google Books API
-4. Normalises to EPUB where possible
-5. Fetches and caches a cover image (from the file or Google Books)
+2. Extracts title, author, and ISBN from file metadata (EPUB) or filename (PDF)
+3. Fetches and caches a cover image from the file or Google Books API
+4. Silently skips duplicates (same file path already in the database)
+
+The upload response is a JSON array of per-file results with `status: "imported" | "duplicate" | "error"`. The UI surfaces any errors as a toast.
 
 ## Reading
 
@@ -27,14 +28,16 @@ Click any book to open the in-browser reader, powered by [foliate-js](https://gi
 
 ## Reading status
 
-Right-click a book (or use the context menu) to set a status:
+Status is tracked per book and updated automatically:
 
-| Status | Meaning |
+| Status | Set when |
 |---|---|
-| `none` | Default / unset |
-| `want` | Want to read |
-| `reading` | Currently reading |
-| `read` | Finished |
+| `none` | Default on upload |
+| `want` | Set manually via context menu |
+| `reading` | Set automatically when the reader is opened |
+| `read` | Set automatically when reading progress reaches ≥ 95% |
+
+You can also set any status manually by right-clicking a book card.
 
 ## API endpoints
 
@@ -43,9 +46,8 @@ Right-click a book (or use the context menu) to set a status:
 | `GET` | `/` | Library home — lists all books |
 | `POST` | `/upload` | Upload one or more book files (multipart `uploadedBook`) |
 | `GET` | `/reader/:id` | Open the in-browser reader |
-| `GET` | `/books/spine/:id` | JSON spine for a book |
-| `GET` | `/books/stream/:id/*` | Stream a resource (chapter, image) from inside an EPUB |
 | `GET` | `/books/file/:id` | Download the raw book file |
 | `POST` | `/books/:id/progress` | Save reading progress `{ cfi, percentage }` |
 | `PATCH` | `/books/:id/status` | Update reading status `{ status }` |
+| `PATCH` | `/books/:id` | Edit metadata `{ title, author, isbn }` |
 | `DELETE` | `/books/:id` | Delete a book and its cover |

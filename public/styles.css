@@ -565,32 +565,299 @@ main.comic-reader { padding: 0; }
 }
 .btn--ghost:hover { background: var(--bg-alt); color: var(--text); border-color: var(--amber); }
 
-/* ── Series groups ── */
-.series-group {
-  margin-bottom: 48px;
-}
-
-.series-group__header {
+/* ── Page header ── */
+.page-header {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(196,122,59, 0.2);
-  margin-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 32px;
 }
-
-.series-group__name {
-  font-family: 'Newsreader', serif;
-  font-weight: 700;
-  font-size: 22px;
-  color: var(--text);
-}
-
-.series-group__count {
-  font-family: 'Space Grotesk', sans-serif;
+.page-header h1 { margin: 0; }
+.page-header__meta {
+  font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   color: var(--text-muted);
-  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+/* ── Back link ── */
+.back-link {
+  display: inline-block;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-bottom: 24px;
+  transition: color 150ms ease;
+}
+.back-link:hover { color: var(--amber); }
+
+/* ── Series stack card ── */
+.series-stack {
+  position: relative;
+  aspect-ratio: 2/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.series-stack__layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px 8px 8px 4px;
+  overflow: hidden;
+  background: var(--bg-inverse);
+  box-shadow: 4px 4px 16px rgba(0,0,0,0.18), inset -3px 0 8px rgba(0,0,0,0.25);
+}
+.series-stack__layer:nth-child(1) {
+  transform: rotate(-5deg) translate(-8px, 5px);
+  filter: brightness(0.55);
+  z-index: 1;
+}
+.series-stack__layer:nth-child(2) {
+  transform: rotate(-2.5deg) translate(-4px, 2px);
+  filter: brightness(0.75);
+  z-index: 2;
+}
+.series-stack__layer:nth-child(3) {
+  transform: none;
+  filter: none;
+  z-index: 3;
+  box-shadow: 6px 6px 20px rgba(0,0,0,0.28), inset -3px 0 8px rgba(0,0,0,0.25);
+}
+.series-stack__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.series-stack__read-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 4;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--cream);
+  background: rgba(26,29,41, 0.72);
+  border-radius: 3px;
+  padding: 2px 5px;
+  backdrop-filter: blur(4px);
+}
+.book-card--series:hover .series-stack__layer:nth-child(3) {
+  box-shadow: 8px 10px 28px rgba(0,0,0,0.35), inset -3px 0 8px rgba(0,0,0,0.25);
+}
+.book-card__meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.book-card__read-frac {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--amber);
+  opacity: 0.85;
+}
+
+/* ── Section divider ── */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(196,122,59, 0.18);
+}
+.section-divider__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Empty state ── */
+.empty-state {
+  padding: 64px 0 32px;
+  text-align: center;
+}
+.empty-state__text {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+/* ── Series hero ── */
+.series-hero {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  margin-bottom: 40px;
+}
+.series-hero__cover {
+  flex-shrink: 0;
+  width: 160px;
+  aspect-ratio: 2/3;
+  background: var(--bg-inverse);
+  border-radius: 4px 10px 10px 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 8px 10px 32px rgba(0,0,0,0.28), inset -3px 0 10px rgba(0,0,0,0.3);
+  position: relative;
+}
+.series-hero__cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.series-hero__initial {
+  font-family: 'Newsreader', serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 80px;
+  color: rgba(245,239,228, 0.12);
+  user-select: none;
+  line-height: 1;
+}
+.series-hero__meta {
+  flex: 1;
+  min-width: 0;
+  padding-top: 8px;
+}
+.series-hero__title {
+  font-family: 'Newsreader', serif;
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+}
+.series-hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.series-hero__stat {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.series-hero__stat--mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--amber);
+  letter-spacing: 0.02em;
+}
+.series-hero__dot {
+  color: rgba(196,122,59, 0.45);
+  font-size: 13px;
+}
+.series-progress {
+  height: 4px;
+  background: rgba(196,122,59, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+  max-width: 260px;
+  margin-bottom: 6px;
+}
+.series-progress__bar {
+  height: 100%;
+  background: var(--amber);
+  border-radius: 2px;
+  transition: width 600ms ease;
+  min-width: 4px;
+}
+.series-hero__actions {
+  margin-top: 20px;
+}
+
+.series-progress__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* ── Series + issue descriptions ── */
+.series-hero__description {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 640px;
+  margin: 0 0 32px;
+}
+
+.book-card__desc {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+/* ── Issue badge ── */
+.issue-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 2;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: var(--cream);
+  background: rgba(26,29,41, 0.68);
+  border-radius: 3px;
+  padding: 2px 6px;
+  backdrop-filter: blur(4px);
+  transition: background 150ms ease;
+}
+.book-card:hover .issue-badge {
+  background: rgba(196,122,59, 0.85);
+}
+
+@media (max-width: 768px) {
+  .series-hero {
+    gap: 20px;
+  }
+  .series-hero__cover {
+    width: 110px;
+  }
+  .series-hero__title {
+    font-size: 28px;
+  }
+}
+@media (max-width: 480px) {
+  .series-hero {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .series-hero__cover {
+    width: 140px;
+  }
+  .series-hero__stats {
+    justify-content: center;
+  }
+  .series-progress {
+    margin: 0 auto 6px;
+  }
 }
 
 /* ── Library grid ── */

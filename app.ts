@@ -6,21 +6,18 @@ import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import pug from 'pug';
-import { sequelize, User, Book, Comic, ApiKey, ComicProgress, ReadingProgress } from './database';
+import { sequelize, User, Book, Comic, ApiKey, ComicProgress, ReadingProgress, ComicSeries } from './database';
 import sessionMiddleware from './middleware/session';
 import { requireAuth, requireAdmin, handleLogin, handleLogout } from './middleware/auth';
-import devMiddleware from './middleware/dev';
 import plugins from './plugins';
-import { openZip, getEntry, parseSpine, MIME } from './utils/epubStream';
 import { getPages, getPage, extractCover, parseComicInfo } from './utils/cbzUtils';
 import { getEpubData, lookupByTitle, resolveISBN } from './utils/bookUtils';
 import { pdfFirstPageAsJpeg } from './utils/convertUtils';
 import { fetchAndCacheCover, shrinkExistingCovers } from './utils/coverUtils';
 import { getMigrationStatus, runPendingMigrations } from './utils/migrationRunner';
 import type { Context } from 'hono';
-import type { AppVariables } from './types/index';
+import type { AppVariables } from './types';
 
-const DEV = false;
 const PORT = Number(process.env.PORT) || 3001;
 const COMICS_DIR = path.join(__dirname, 'comics');
 const COVER_DIR  = path.join(__dirname, 'cache/covers');
@@ -42,10 +39,9 @@ function render(c: Context<{ Variables: AppVariables }>, template: string, local
     const session = c.get('session');
     const html = pug.renderFile(path.join(BASEDIR, 'views', `${template}.pug`), {
         basedir: BASEDIR,
-        cache: !DEV,
+        cache: true,
         user: session?.user ?? null,
         currentPath: new URL(c.req.url).pathname,
-        dev: DEV,
         ...plugins.getLocals(),
         ...locals,
     });
@@ -71,10 +67,6 @@ for (const entry of fs.readdirSync(path.join(BASEDIR, 'plugins'), { withFileType
 for (const p of ['/favicon.ico', '/icon.png', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png', '/manifest.json', '/robots.txt']) {
     app.get(p, c => c.body(null, 204));
 }
-
-// ── Dev livereload ────────────────────────────────────────────────────────────
-
-if (DEV) devMiddleware(app);
 
 // ── Session ───────────────────────────────────────────────────────────────────
 
@@ -117,11 +109,8 @@ app.post('/comics/ingest', requireApiKey, async c => {
     const results: Array<{ file: string; status: 'imported' | 'duplicate' | 'error'; error?: string }> = [];
 
     await Promise.allSettled(validFiles.map(async file => {
-        const safeName = path.basename(file.name);
-        if (!/^[\w.\- ]+\.(cbz|cbr)$/i.test(safeName)) {
-            results.push({ file: file.name, status: 'error', error: 'invalid filename' });
-            return;
-        }
+        const safeName = path.basename(file.name).replace(/\0/g, '');
+        if (!safeName) { results.push({ file: file.name, status: 'error', error: 'invalid filename' }); return; }
         const filePath = path.join(COMICS_DIR, safeName);
 
         const existing = await Comic.findOne({ where: { filePath }, attributes: ['id'] });
@@ -188,12 +177,17 @@ app.post('/upload', async c => {
 
     const BOOK_EXTS = new Set(['.pdf', '.epub', '.mobi', '.azw', '.azw3', '.djvu', '.fb2']);
 
+    const results: Array<{ file: string; status: 'imported' | 'duplicate' | 'error'; error?: string }> = [];
+
     await Promise.allSettled(validFiles.map(async file => {
         const ext = path.extname(file.name).toLowerCase();
-        if (!BOOK_EXTS.has(ext)) return;
+        if (!BOOK_EXTS.has(ext)) {
+            results.push({ file: file.name, status: 'error', error: 'unsupported extension' });
+            return;
+        }
+        fs.mkdirSync(BOOKS_DIR, { recursive: true });
+        const destPath = path.join(BOOKS_DIR, file.name);
         try {
-            fs.mkdirSync(BOOKS_DIR, { recursive: true });
-            const destPath = path.join(BOOKS_DIR, file.name);
             await Bun.write(destPath, file);
 
             let title: string | null, author: string | null, isbn: string | null, coverId: number | null = null, pdfCover: Buffer | null = null;
@@ -227,43 +221,25 @@ app.post('/upload', async c => {
                 }
                 plugins.emit('bookUploaded', { id: book.id, title, author, isbn, filePath: destPath });
             }
-        } catch (err) { console.error('Failed to process', file.name, err); }
+            results.push({ file: file.name, status: created ? 'imported' : 'duplicate' });
+        } catch (err) {
+            const msg = (err as Error).message;
+            console.error('[upload] failed:', file.name, msg);
+            try { fs.unlinkSync(destPath); } catch {}
+            results.push({ file: file.name, status: 'error', error: msg });
+        }
     }));
 
-    return c.body(null, 200);
+    const anyError = results.some(r => r.status === 'error');
+    return c.json(results, anyError ? 207 : 200);
 });
 
-app.get('/books/spine/:id', async c => {
-    const book = await Book.findByPk(c.req.param('id'), { attributes: ['filePath'] });
-    if (!book) return c.body(null, 404);
-    try {
-        const { spine } = parseSpine(openZip(book.filePath));
-        return c.json(spine);
-    } catch (e) { return c.json({ error: (e as Error).message }, 500); }
-});
-
-app.get('/books/stream/:id/*', async c => {
-    const id = c.req.param('id');
-    const book = await Book.findByPk(id, { attributes: ['filePath'] });
-    if (!book) return c.body(null, 404);
-    const resource = decodeURIComponent(c.req.path.slice(`/books/stream/${id}/`.length));
-    try {
-        const zip   = openZip(book.filePath);
-        const entry = getEntry(zip, resource);
-        if (!entry) return c.body(null, 404);
-        const ext = path.extname(resource).toLowerCase();
-        return new Response(entry.getData(), {
-            headers: {
-                'Content-Type':   MIME[ext] || 'application/octet-stream',
-                'X-Frame-Options': 'SAMEORIGIN',
-            },
-        });
-    } catch (e) { return c.body(null, 500); }
-});
 
 app.get('/reader/:id', async c => {
     const book = await Book.findByPk(c.req.param('id'));
     if (!book) return c.notFound();
+    if (!book.status || book.status === 'none' || book.status === 'want')
+        await Book.update({ status: 'reading' }, { where: { id: book.id } });
     const progress = await ReadingProgress.findOne({
         where: { user_id: c.get('session').user!.id, book_id: book.id },
         attributes: ['cfi', 'percentage'],
@@ -279,13 +255,16 @@ app.get('/books/file/:id', async c => {
 
 app.post('/books/:id/progress', async c => {
     const { cfi, percentage } = await c.req.json() as { cfi: string; percentage: number };
+    const id = c.req.param('id');
     await ReadingProgress.upsert({
         user_id: c.get('session').user!.id,
-        book_id: Number(c.req.param('id')),
+        book_id: Number(id),
         cfi,
         percentage,
         updated_at: new Date().toISOString(),
     });
+    if (percentage >= 0.95)
+        await Book.update({ status: 'read' }, { where: { id } });
     return c.body(null, 204);
 });
 
@@ -336,7 +315,13 @@ app.get('/comics', async c => {
             seriesMap.get(comic.series)!.push(comic);
         } else { standalone.push(comic); }
     }
-    const groups = [...seriesMap.entries()].map(([name, items]) => ({ name, items: sortIssues(items) }));
+    const groups = [...seriesMap.entries()].map(([name, items]) => {
+        const sorted = sortIssues(items);
+        const readCount = sorted.filter(c => c.status === 'read').length;
+        // reversed so front cover renders last in DOM (naturally on top)
+        const coverIds = sorted.slice(0, 3).map(c => c.id).reverse();
+        return { name, count: sorted.length, readCount, coverIds };
+    });
     return render(c, 'comics', { groups, standalone });
 });
 
@@ -367,12 +352,14 @@ app.post('/comics/upload', async c => {
     fs.mkdirSync(COMICS_DIR, { recursive: true });
     fs.mkdirSync(path.join(__dirname, 'cache/covers'), { recursive: true });
 
+    const results: Array<{ file: string; status: 'imported' | 'duplicate' | 'error'; error?: string }> = [];
+
     await Promise.allSettled(validFiles.map(async file => {
-        const safeName = path.basename(file.name);
-        if (!/^[\w.\- ]+\.(cbz|cbr)$/i.test(safeName)) return;
+        const safeName = path.basename(file.name).replace(/\0/g, '');
+        if (!safeName) { results.push({ file: file.name, status: 'error', error: 'invalid filename' }); return; }
         const filePath = path.join(COMICS_DIR, safeName);
-        await Bun.write(filePath, file);
         try {
+            await Bun.write(filePath, file);
             const info    = await parseComicInfo(filePath);
             const pages   = await getPages(filePath);
             const rawName = path.basename(file.name, path.extname(file.name));
@@ -389,16 +376,59 @@ app.post('/comics/upload', async c => {
                 const cover = await extractCover(filePath);
                 if (cover) fs.writeFileSync(path.join(__dirname, 'cache/covers', `c${comic.id}.jpg`), cover);
             }
-        } catch (e) { console.error('[comics] upload failed:', (e as Error).message); }
+            results.push({ file: file.name, status: created ? 'imported' : 'duplicate' });
+        } catch (e) {
+            const msg = (e as Error).message;
+            console.error('[comics/upload] failed:', file.name, msg);
+            try { fs.unlinkSync(filePath); } catch {}
+            results.push({ file: file.name, status: 'error', error: msg });
+        }
     }));
 
-    return c.body(null, 200);
+    const anyError = results.some(r => r.status === 'error');
+    return c.json(results, anyError ? 207 : 200);
+});
+
+app.get('/comics/series/:name', async c => {
+    const name = decodeURIComponent(c.req.param('name'));
+    const [comics, seriesRecord] = await Promise.all([
+        Comic.findAll({ where: { series: name } }),
+        ComicSeries.findOne({ where: { name } }),
+    ]);
+    if (!comics.length) return c.notFound();
+    const isSpecial = (issue: string | null) => !issue || !/^\d+$/.test(issue);
+    comics.sort((a, b) => {
+        const as_ = isSpecial(a.issue), bs_ = isSpecial(b.issue);
+        if (as_ !== bs_) return as_ ? 1 : -1;
+        if (!as_) return parseInt(a.issue!, 10) - parseInt(b.issue!, 10);
+        return (a.issue || a.title).localeCompare(b.issue || b.title);
+    });
+    const years = comics.map(c => c.year).filter((y): y is number => y != null);
+    const minYear = years.length ? Math.min(...years) : null;
+    const maxYear = years.length ? Math.max(...years) : null;
+    const yearRange = minYear ? (minYear === maxYear ? String(minYear) : `${minYear} – ${maxYear}`) : null;
+    const readCount = comics.filter(c => c.status === 'read').length;
+    const readPct = Math.round(readCount / comics.length * 100);
+    const continueId = comics.find(c => c.status === 'reading')?.id
+        ?? comics.find(c => !c.status || c.status === 'none' || c.status === 'want')?.id
+        ?? comics[0].id;
+    const allRead = readCount === comics.length;
+    return render(c, 'series', { name, comics, yearRange, readCount, readPct, continueId, allRead, seriesDescription: seriesRecord?.description ?? null });
+});
+
+app.patch('/comics/series/:name', async c => {
+    const name = decodeURIComponent(c.req.param('name'));
+    const { description } = await c.req.json() as { description?: string };
+    await ComicSeries.upsert({ name, description: description?.trim() || null });
+    return c.body(null, 204);
 });
 
 app.get('/comics/read/:id', async c => {
     const id = c.req.param('id');
     const comic = await Comic.findByPk(id);
     if (!comic) return c.body('Not found', 404);
+    if (!comic.status || comic.status === 'none' || comic.status === 'want')
+        await Comic.update({ status: 'reading' }, { where: { id } });
     const progress = await ComicProgress.findOne({
         where: { user_id: c.get('session').user!.id, comic_id: comic.id },
         attributes: ['page'],
@@ -430,11 +460,15 @@ app.get('/comics/page/:id/*', async c => {
 
 app.post('/comics/:id/progress', async c => {
     const { page } = await c.req.json() as { page: number };
+    const id = c.req.param('id');
     await ComicProgress.upsert({
         user_id: c.get('session').user!.id,
-        comic_id: Number(c.req.param('id')),
+        comic_id: Number(id),
         page,
     });
+    const comic = await Comic.findByPk(id, { attributes: ['pageCount'] });
+    if (comic && comic.pageCount > 0 && page >= comic.pageCount - 1)
+        await Comic.update({ status: 'read' }, { where: { id } });
     return c.body(null, 204);
 });
 
@@ -460,12 +494,13 @@ app.patch('/comics/bulk', async c => {
 });
 
 app.patch('/comics/:id', async c => {
-    const { title, series, issue, year } = await c.req.json() as { title?: string; series?: string; issue?: string; year?: string };
+    const { title, series, issue, year, description } = await c.req.json() as { title?: string; series?: string; issue?: string; year?: string; description?: string };
     const fields: Record<string, string | number | null> = {};
-    if (title  !== undefined) fields.title  = title;
-    if (series !== undefined) fields.series = series || null;
-    if (issue  !== undefined) fields.issue  = issue  || null;
-    if (year   !== undefined) fields.year   = year ? parseInt(year, 10) : null;
+    if (title       !== undefined) fields.title       = title;
+    if (series      !== undefined) fields.series      = series || null;
+    if (issue       !== undefined) fields.issue       = issue  || null;
+    if (year        !== undefined) fields.year        = year ? parseInt(year, 10) : null;
+    if (description !== undefined) fields.description = description?.trim() || null;
     if (Object.keys(fields).length) await Comic.update(fields, { where: { id: c.req.param('id') } });
     return c.body(null, 204);
 });
@@ -485,7 +520,15 @@ app.delete('/comics/:id', async c => {
 app.get('/library', requireAdmin, async c => {
     const books  = await Book.findAll({ order: [['title', 'ASC']] });
     const comics = await Comic.findAll({ order: [['series', 'ASC'], ['issue', 'ASC'], ['title', 'ASC']] });
-    return render(c, 'library', { books, comics });
+    const seriesNames = [...new Set(comics.filter(c => c.series).map(c => c.series!))].sort();
+    const seriesRecords = await ComicSeries.findAll({ where: { name: seriesNames } });
+    const seriesDescMap = new Map(seriesRecords.map(s => [s.name, s.description]));
+    const series = seriesNames.map(name => ({
+        name,
+        count: comics.filter(c => c.series === name).length,
+        description: seriesDescMap.get(name) ?? null,
+    }));
+    return render(c, 'library', { books, comics, series });
 });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
@@ -565,9 +608,11 @@ app.delete('/admin/api-keys/:id', requireAdmin, async c => {
 
 // ── Plugins & start ───────────────────────────────────────────────────────────
 
-await plugins.load(app, sequelize);
+export { app };
 
-shrinkExistingCovers().catch(e => console.error('[covers]', e));
-
-Bun.serve({ fetch: app.fetch, port: PORT, maxRequestBodySize: 2 * 1024 * 1024 * 1024 });
-console.log(`Booknook listening on http://localhost:${PORT}`);
+if (import.meta.main) {
+    await plugins.load(app, sequelize);
+    shrinkExistingCovers().catch(e => console.error('[covers]', e));
+    Bun.serve({ fetch: app.fetch, port: PORT, maxRequestBodySize: 2 * 1024 * 1024 * 1024 });
+    console.log(`Booknook listening on http://localhost:${PORT}`);
+}

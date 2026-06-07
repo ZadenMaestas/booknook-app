@@ -69,19 +69,30 @@ export class Comic extends Model {
     declare filePath: string;
     declare pageCount: number;
     declare status: string;
+    declare description: string | null;
     declare created_at: string;
 }
 Comic.init({
-    id:         { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    title:      { type: DataTypes.TEXT, allowNull: false },
-    series:     { type: DataTypes.TEXT },
-    issue:      { type: DataTypes.TEXT },
-    year:       { type: DataTypes.INTEGER },
-    filePath:   { type: DataTypes.TEXT, unique: true },
-    pageCount:  { type: DataTypes.INTEGER, defaultValue: 0 },
-    status:     { type: DataTypes.TEXT, defaultValue: 'none' },
-    created_at: { type: DataTypes.TEXT },
+    id:          { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    title:       { type: DataTypes.TEXT, allowNull: false },
+    series:      { type: DataTypes.TEXT },
+    issue:       { type: DataTypes.TEXT },
+    year:        { type: DataTypes.INTEGER },
+    filePath:    { type: DataTypes.TEXT, unique: true },
+    pageCount:   { type: DataTypes.INTEGER, defaultValue: 0 },
+    status:      { type: DataTypes.TEXT, defaultValue: 'none' },
+    description: { type: DataTypes.TEXT },
+    created_at:  { type: DataTypes.TEXT },
 }, { sequelize, tableName: 'comics', timestamps: false });
+
+export class ComicSeries extends Model {
+    declare name: string;
+    declare description: string | null;
+}
+ComicSeries.init({
+    name:        { type: DataTypes.TEXT, primaryKey: true },
+    description: { type: DataTypes.TEXT },
+}, { sequelize, tableName: 'comic_series', timestamps: false });
 
 export class ApiKey extends Model {
     declare id: number;
@@ -129,7 +140,21 @@ await sequelize.query('PRAGMA synchronous=NORMAL');
 await sequelize.query('PRAGMA busy_timeout=5000');
 await sequelize.query('PRAGMA cache_size=-16000');
 
-await sequelize.sync();
+await sequelize.sync(); // creates new tables only
+
+// Auto-add missing columns without recreating tables (alter:true recreates tables,
+// which breaks SQLite composite PKs like comic_progress)
+for (const model of Object.values(sequelize.models)) {
+    const tableName = model.getTableName() as string;
+    const [rows] = await sequelize.query(`PRAGMA table_info("${tableName}")`);
+    const existing = new Set((rows as Array<{ name: string }>).map(r => r.name));
+    for (const [attrName, def] of Object.entries(model.rawAttributes)) {
+        const col: string = (def as any).field ?? attrName;
+        if (existing.has(col) || (def as any).primaryKey) continue;
+        const typeSql: string = (def as any).type?.toSql?.() ?? 'TEXT';
+        await sequelize.query(`ALTER TABLE "${tableName}" ADD COLUMN "${col}" ${typeSql}`).catch(() => {});
+    }
+}
 
 const adminUser = process.env.ADMIN_USERNAME;
 const adminPass = process.env.ADMIN_PASSWORD;

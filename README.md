@@ -1,7 +1,8 @@
 # Booknook
 
-A self-hosted personal library server for ebooks, comics, and audiobooks. Runs on [Bun](https://bun.sh) with Hono,
-SQLite, and a plugin system for extending functionality.
+A self-hosted personal library server for ebooks and comics. Runs on [Bun](https://bun.sh) with Hono, SQLite via Sequelize, and a plugin system for extending functionality.
+
+**[Documentation →](https://zadenmaestas.github.io/booknook-app/)**
 
 ## Screenshots
 
@@ -17,68 +18,54 @@ SQLite, and a plugin system for extending functionality.
 
 ## Features
 
-- **Ebooks** — upload and read EPUB files with a full in-browser reader (foliate-js)
-- **Comics** — upload CBZ/CBR files; series and issues are auto-grouped from filename and can otherwise be manually
-  modified in bulk
-- **Multi-user** — session-based auth with per-user reading progress; admin can manage users
-- **Plugin system** — drop a folder with a `plugin.js` into `plugins/` to add new functionality
+- **Ebooks** — upload and read EPUB/PDF files with a full in-browser reader powered by [foliate-js](https://github.com/johnfactotum/foliate-js)
+- **Comics** — upload CBZ/CBR files; series are auto-detected and shown as browsable series pages with stacked cover art
+- **Auto-status** — opening a book or comic sets it to *reading*; finishing sets it to *read* automatically
+- **Multi-user** — session-based auth with per-user reading progress; admin panel for user management
+- **Plugin system** — drop a folder into `plugins/` to add new routes, nav items, and lifecycle hooks
+- **Docker-ready** — single `docker compose up` for production deployment
 
-## Setup
+## Quick start
+
+```bash
+docker compose up -d
+```
+
+Or for local development:
 
 ```bash
 bun install
 cp .env.example .env   # edit as needed
-bun run dev            # hot-reloads on file changes
+bun run dev
 ```
 
-The server listens on **port 3001** by default.
+See the [Getting Started guide](https://zadenmaestas.github.io/booknook-app/getting-started/) for full setup instructions.
 
-### Environment variables
+## Environment variables
 
-| Variable               | Required                  | Description                                       |
-|------------------------|---------------------------|---------------------------------------------------|
-| `SESSION_SECRET`       | no                        | Express session secret (defaults to `dev-secret`) |
-| `ANNAS_SECRET_KEY`     | for anna's archive plugin | Your Anna's Archive API key                       |
-| `ANNAS_BASE_URL`       | no                        | Override the default mirror URL                   |
-| `GOOGLE_BOOKS_API_KEY` | no                        | Improves cover art fetching quality               |
-
-## Directory layout
-
-```
-app.js            — Express server and all core routes
-database.js       — better-sqlite3 setup and schema migrations
-plugins/          — plugin registry + one subdirectory per plugin
-  index.js        — PluginRegistry (loads, mounts, and hooks plugins)
-middleware/       — auth, session store, upload handling, dev livereload
-utils/            — epub/cbz parsing, cover fetching, book metadata
-views/            — Pug templates (layout.pug is the shared shell)
-public/           — static assets (foliate-js reader, styles, icons)
-books/            — uploaded EPUB/PDF files (git-ignored)
-comics/           — uploaded CBZ/CBR files (git-ignored)
-cache/covers/     — extracted cover images (git-ignored)
-```
+| Variable | Required | Description |
+|---|---|---|
+| `SESSION_SECRET` | **yes** | Secret for signing session cookies (`openssl rand -hex 32`) |
+| `ADMIN_USERNAME` | no | Username for the auto-created admin account |
+| `ADMIN_PASSWORD` | no | Password for the auto-created admin account |
+| `GOOGLE_BOOKS_API_KEY` | no | Improves book metadata and cover quality |
+| `GEMINI_API_KEY` | no | Enables the AI recommendations plugin |
+| `DATA_DIR` | no | Custom path for the SQLite database (useful in Docker) |
 
 ## Plugins
 
-Plugins live in `plugins/<name>/plugin.js` and are loaded automatically at startup. See [
-`plugins/pluginCreation.md`](plugins/pluginCreation.md) for a guide on writing your own, and [
-`plugins/example/`](plugins/example/) for a minimal working reference.
-
 Bundled plugins:
 
-| Plugin                                           | Description                                            |
-|--------------------------------------------------|--------------------------------------------------------|
-| [annas-archive](plugins/annas-archive/README.md) | Search and download books directly from Anna's Archive |
-| [comic-dl](plugins/comic-dl/README.md)           | Download comics from the web via a headless browser    |
+| Plugin | Description |
+|---|---|
+| [ai-integration](plugins/ai-integration/) | AI-powered book recommendations via Google Gemini |
+
+See the [Plugin System docs](https://zadenmaestas.github.io/booknook-app/plugins/writing-plugins/) to write your own.
 
 ## Scripts
 
 ```bash
+bun run dev          # dev mode with auto-restart
 bun run start        # production start
-bun run dev          # dev mode with livereload
-
-
-bun run landing:dev     # vite dev server for landing page
-bun run landing:build   # production build
-bun run landing:deploy  # wrangler deploy to Cloudflare Workers
+bun run typecheck    # tsc --noEmit
 ```

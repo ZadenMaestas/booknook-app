@@ -6,32 +6,40 @@ block title
 block content
     main
         .row
-            h1 Comics
+            .page-header
+                h1 Comics
+                if groups.length || standalone.length
+                    span.page-header__meta
+                        if groups.length
+                            = groups.length + (groups.length === 1 ? ' series' : ' series')
+                        if groups.length && standalone.length
+                            = ' · '
+                        if standalone.length
+                            = standalone.length + ' standalone'
+
             if groups.length || standalone.length
-                each group in groups
-                    .series-group
-                        .series-group__header
-                            span.series-group__name= group.name
-                            span.series-group__count= group.items.length + (group.items.length === 1 ? ' issue' : ' issues')
-                        .library-grid
-                            each comic in group.items
-                                a.book-card(href='/comics/read/'+comic.id data-id=comic.id data-status=comic.status||'none')
-                                    .book-card__cover
-                                        img.book-card__cover-img(src='/cache/covers/c'+comic.id+'.jpg' alt='' onerror="this.style.display='none'")
-                                        span.book-card__initial= comic.title.charAt(0)
-                                        .book-card__status-dot
-                                    .book-card__info
-                                        p.book-card__title= comic.title
-                                        p.book-card__author
-                                            if comic.issue
-                                                = '#' + comic.issue
-                                            else
-                                                = comic.pageCount + ' pages'
+                if groups.length
+                    .library-grid
+                        each group in groups
+                            a.book-card.book-card--series(href='/comics/series/'+encodeURIComponent(group.name))
+                                .series-stack
+                                    each coverId in group.coverIds
+                                        .series-stack__layer
+                                            img.series-stack__img(src='/cache/covers/c'+coverId+'.jpg' alt='' onerror="this.parentNode.style.display='none'")
+                                    span.book-card__initial= group.name.charAt(0)
+                                    if group.readCount > 0
+                                        .series-stack__read-badge= group.readCount + '/' + group.count
+                                .book-card__info
+                                    p.book-card__title= group.name
+                                    .book-card__meta-row
+                                        span.book-card__author= group.count + (group.count === 1 ? ' issue' : ' issues')
+                                        if group.readCount > 0
+                                            span.book-card__read-frac= group.readCount + ' read'
+
                 if standalone.length
                     if groups.length
-                        .series-group__header
-                            span.series-group__name Other
-                            span.series-group__count= standalone.length + (standalone.length === 1 ? ' issue' : ' issues')
+                        .section-divider
+                            span.section-divider__label Standalone
                     .library-grid
                         each comic in standalone
                             a.book-card(href='/comics/read/'+comic.id data-id=comic.id data-status=comic.status||'none')
@@ -42,26 +50,31 @@ block content
                                 .book-card__info
                                     p.book-card__title= comic.title
                                     p.book-card__author= comic.pageCount + ' pages'
+            else
+                .empty-state
+                    p.empty-state__text No comics yet. Upload a CBZ or CBR to get started.
+
             .upload-section
                 form#upload-form(action="/comics/upload" method="POST" enctype="multipart/form-data")
                     .drop-zone#drop-zone
                         img.drop-zone__icon(src="/assets/favicon.svg" alt="" width="56" height="56")
                         p.drop-zone__text Drop comics here
-                        p.drop-zone__sub .cbz files supported · multiple allowed
+                        p.drop-zone__sub .cbz · .cbr · multiple allowed
                         label.btn(for="comic") Browse files
                         input#comic(type="file" name="comic" accept=".cbz,.cbr" multiple hidden)
                     p#file-name.drop-zone__filename
                     button.btn(type="submit") Upload Comics
+
     #toast.toast
         .toast__spinner#toast-spinner
         span#toast-msg
-        #context-menu.context-menu
-            button.context-menu__item.context-menu__item--status(data-status="want") Want to read
-            button.context-menu__item.context-menu__item--status(data-status="reading") Reading
-            button.context-menu__item.context-menu__item--status(data-status="read") Read
-            button.context-menu__item.context-menu__item--status(data-status="none") Clear status
-            .context-menu__sep
-            button#ctx-delete.context-menu__item.context-menu__item--danger Delete
+    #context-menu.context-menu
+        button.context-menu__item.context-menu__item--status(data-status="want") Want to read
+        button.context-menu__item.context-menu__item--status(data-status="reading") Reading
+        button.context-menu__item.context-menu__item--status(data-status="read") Read
+        button.context-menu__item.context-menu__item--status(data-status="none") Clear status
+        .context-menu__sep
+        button#ctx-delete.context-menu__item.context-menu__item--danger Delete
 
 block scripts
     script.
@@ -110,7 +123,14 @@ block scripts
                         showToast(`Uploading ${label}… ${fmtMB(e.loaded)} / ${fmtMB(e.total)}`);
                 });
                 xhr.addEventListener('load', () => {
-                    if (xhr.status >= 400) showError(`Upload failed (${xhr.status})`);
+                    if (xhr.status >= 400) { showError(`Upload failed (${xhr.status})`); resolve(); return; }
+                    if (xhr.status === 207) {
+                        const results = JSON.parse(xhr.responseText);
+                        const failed = results.filter(r => r.status === 'error');
+                        const msgs = failed.map(r => `${r.file}: ${r.error}`).join('\n');
+                        showError(`Some files failed:\n${msgs}`);
+                        resolve(); return;
+                    }
                     resolve();
                 });
                 xhr.addEventListener('error', () => { showError('Upload failed — network error'); resolve(); });
@@ -127,7 +147,7 @@ block scripts
         menu.addEventListener('mouseenter', resetMenuTimer);
         menu.addEventListener('mouseleave', resetMenuTimer);
 
-        document.querySelectorAll('.book-card').forEach(card => {
+        document.querySelectorAll('.book-card[data-id]').forEach(card => {
             card.addEventListener('contextmenu', e => {
                 e.preventDefault();
                 activeId = card.dataset.id;

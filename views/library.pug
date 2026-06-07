@@ -44,8 +44,12 @@ block head
         .lib-modal h2 { margin: 0 0 1.25rem; font-size: 1rem; font-weight: 600; }
         .lib-field { margin-bottom: 1rem; }
         .lib-field label { display: block; font-size: .8rem; font-weight: 500; color: var(--text-muted); margin-bottom: .3rem; }
-        .lib-field input[type="text"], .lib-field input[type="number"] { width: 100%; padding: .4rem .65rem; border: 1px solid rgba(196,122,59,.2); border-radius: 4px; background: var(--bg); color: var(--text); font-size: .875rem; box-sizing: border-box; }
-        .lib-field input:focus { outline: none; border-color: var(--amber); }
+        .lib-field input[type="text"], .lib-field input[type="number"], .lib-field textarea { width: 100%; padding: .4rem .65rem; border: 1px solid rgba(196,122,59,.2); border-radius: 4px; background: var(--bg); color: var(--text); font-size: .875rem; box-sizing: border-box; font-family: inherit; }
+        .lib-field textarea { resize: vertical; min-height: 72px; line-height: 1.45; }
+        .lib-field input:focus, .lib-field textarea:focus { outline: none; border-color: var(--amber); }
+        .series-desc-row td { vertical-align: top; padding-top: .6rem; }
+        .series-desc-textarea { width: 100%; min-height: 56px; resize: vertical; padding: .3rem .55rem; border: 1px solid rgba(196,122,59,.2); border-radius: 4px; background: var(--bg); color: var(--text); font-size: .8rem; box-sizing: border-box; font-family: inherit; line-height: 1.4; }
+        .series-desc-textarea:focus { outline: none; border-color: var(--amber); }
         .lib-field input:disabled { opacity: .4; cursor: not-allowed; }
         .lib-field-toggle { display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
         .lib-field-toggle input[type="checkbox"] { accent-color: var(--amber); cursor: pointer; }
@@ -125,6 +129,7 @@ block content
             .lib-tabs
                 button.lib-tab.lib-tab--active(data-tab="books") Books (#{books.length})
                 button.lib-tab(data-tab="comics") Comics (#{comics.length})
+                button.lib-tab(data-tab="series") Series (#{series.length})
 
             .lib-section.lib-section--active(id="section-books")
                 .lib-toolbar
@@ -212,11 +217,34 @@ block content
                                                     data-series=comic.series||''
                                                     data-issue=comic.issue||''
                                                     data-year=comic.year||''
+                                                    data-description=comic.description||''
                                                 ) Edit
                                                 button.lib-btn.lib-btn--danger.btn-delete(data-type="comic" data-id=comic.id) Delete
                             else
                                 tr
                                     td.lib-empty(colspan="9") No comics yet
+
+            .lib-section(id="section-series")
+                if series.length
+                    .lib-table-wrap
+                        table.lib-table(id="series-table")
+                            thead
+                                tr
+                                    th Series
+                                    th Issues
+                                    th Description
+                                    th
+                            tbody
+                                each s in series
+                                    tr.series-desc-row(data-name=s.name)
+                                        td= s.name
+                                        td= s.count
+                                        td
+                                            textarea.series-desc-textarea(placeholder="Series description…")= s.description || ''
+                                        td
+                                            button.lib-btn.series-desc-save Save
+                else
+                    .lib-empty No series yet
 
     #edit-modal.lib-modal-backdrop
         .lib-modal
@@ -244,6 +272,9 @@ block content
                 .lib-field
                     label Title
                     input#edit-comic-title(type="text")
+                .lib-field
+                    label Description
+                    textarea#edit-comic-description(rows="3" placeholder="Issue synopsis…")
             .lib-modal-footer
                 button.lib-btn#modal-cancel Cancel
                 button.btn#modal-save Save
@@ -322,10 +353,11 @@ block scripts
                 } else {
                     bookFields.style.display  = 'none';
                     comicFields.style.display = '';
-                    document.getElementById('edit-series').value      = editState.series || '';
-                    document.getElementById('edit-year').value        = editState.year   || '';
-                    document.getElementById('edit-issue').value       = editState.issue  || '';
-                    document.getElementById('edit-comic-title').value = editState.title  || '';
+                    document.getElementById('edit-series').value            = editState.series      || '';
+                    document.getElementById('edit-year').value              = editState.year        || '';
+                    document.getElementById('edit-issue').value             = editState.issue       || '';
+                    document.getElementById('edit-comic-title').value       = editState.title       || '';
+                    document.getElementById('edit-comic-description').value = editState.description || '';
                 }
                 modal.classList.add('lib-modal-backdrop--open');
             });
@@ -338,7 +370,7 @@ block scripts
             const { type, id } = editState;
             const body = type === 'book'
                 ? { title: document.getElementById('edit-title').value.trim(), author: document.getElementById('edit-author').value.trim(), isbn: document.getElementById('edit-isbn').value.trim() }
-                : { title: document.getElementById('edit-comic-title').value.trim(), series: document.getElementById('edit-series').value.trim(), issue: document.getElementById('edit-issue').value.trim(), year: document.getElementById('edit-year').value.trim() };
+                : { title: document.getElementById('edit-comic-title').value.trim(), series: document.getElementById('edit-series').value.trim(), issue: document.getElementById('edit-issue').value.trim(), year: document.getElementById('edit-year').value.trim(), description: document.getElementById('edit-comic-description').value.trim() };
             const url = type === 'book' ? `/books/${id}` : `/comics/${id}`;
             await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             modal.classList.remove('lib-modal-backdrop--open');
@@ -419,4 +451,22 @@ block scripts
             await fetch('/comics/bulk', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, updates }) });
             bulkModal.classList.remove('lib-modal-backdrop--open');
             location.reload();
+        });
+
+        // ── Series description save ───────────────────────────────────────────
+        document.querySelectorAll('.series-desc-save').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const row = btn.closest('tr');
+                const name = row.dataset.name;
+                const description = row.querySelector('.series-desc-textarea').value.trim();
+                await fetch(`/comics/series/${encodeURIComponent(name)}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description }),
+                });
+                const orig = btn.textContent;
+                btn.textContent = 'Saved!';
+                btn.disabled = true;
+                setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+            });
         });

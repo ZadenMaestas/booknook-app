@@ -1,0 +1,110 @@
+extends layout
+
+block title
+    title= name + ' — BookNook'
+
+block content
+    main
+        .row
+            a.back-link(href='/comics') ← All Comics
+
+            .series-hero
+                .series-hero__cover
+                    img.series-hero__cover-img(src='/cache/covers/c'+comics[0].id+'.jpg' alt=name onerror="this.style.display='none'")
+                    span.series-hero__initial= name.charAt(0)
+                .series-hero__meta
+                    h1.series-hero__title= name
+                    .series-hero__stats
+                        if yearRange
+                            span.series-hero__stat.series-hero__stat--mono= yearRange
+                            span.series-hero__dot ·
+                        span.series-hero__stat= comics.length + (comics.length === 1 ? ' issue' : ' issues')
+                        if readCount > 0
+                            span.series-hero__dot ·
+                            span.series-hero__stat= readCount + (readCount === 1 ? ' read' : ' read')
+                    if comics.length > 0
+                        .series-progress
+                            .series-progress__bar(style='width:' + readPct + '%')
+                        span.series-progress__label= readPct + '% complete'
+                    .series-hero__actions
+                        a.btn(href='/comics/read/' + continueId)= allRead ? 'Read Again' : (readCount > 0 ? 'Continue Reading' : 'Start Reading')
+
+            if seriesDescription
+                p.series-hero__description= seriesDescription
+
+            .library-grid
+                each comic in comics
+                    a.book-card(href='/comics/read/'+comic.id data-id=comic.id data-status=comic.status||'none')
+                        .book-card__cover
+                            img.book-card__cover-img(src='/cache/covers/c'+comic.id+'.jpg' alt='' onerror="this.style.display='none'")
+                            span.book-card__initial= comic.title.charAt(0)
+                            .book-card__status-dot
+                            if comic.issue
+                                span.issue-badge= '#' + comic.issue
+                        .book-card__info
+                            p.book-card__title= comic.title
+                            if comic.description
+                                p.book-card__desc= comic.description
+                            p.book-card__author
+                                if comic.year
+                                    = comic.year
+                                if comic.year && comic.pageCount
+                                    = ' · '
+                                if comic.pageCount
+                                    = comic.pageCount + ' pp'
+
+    #context-menu.context-menu
+        button.context-menu__item.context-menu__item--status(data-status="want") Want to read
+        button.context-menu__item.context-menu__item--status(data-status="reading") Reading
+        button.context-menu__item.context-menu__item--status(data-status="read") Read
+        button.context-menu__item.context-menu__item--status(data-status="none") Clear status
+        .context-menu__sep
+        button#ctx-delete.context-menu__item.context-menu__item--danger Delete
+
+block scripts
+    script.
+        const menu = document.getElementById('context-menu');
+        let activeId = null, menuTimeout = null;
+        const closeMenu = () => { menu.classList.remove('context-menu--visible'); clearTimeout(menuTimeout); };
+        const resetMenuTimer = () => { clearTimeout(menuTimeout); menuTimeout = setTimeout(closeMenu, 10000); };
+        menu.addEventListener('mouseenter', resetMenuTimer);
+        menu.addEventListener('mouseleave', resetMenuTimer);
+
+        document.querySelectorAll('.book-card').forEach(card => {
+            card.addEventListener('contextmenu', e => {
+                e.preventDefault();
+                activeId = card.dataset.id;
+                menu.classList.add('context-menu--visible');
+                resetMenuTimer();
+                const rect = card.getBoundingClientRect();
+                const x = rect.right + menu.offsetWidth > window.innerWidth ? rect.left - menu.offsetWidth : rect.right;
+                const y = Math.min(rect.top, window.innerHeight - menu.offsetHeight);
+                menu.style.left = x + 'px';
+                menu.style.top  = y + 'px';
+            });
+        });
+        document.addEventListener('click', closeMenu);
+
+        document.querySelectorAll('.context-menu__item--status').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!activeId) return;
+                await fetch(`/comics/${activeId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: btn.dataset.status }),
+                });
+                const card = document.querySelector(`.book-card[data-id="${activeId}"]`);
+                if (card) card.dataset.status = btn.dataset.status;
+            });
+        });
+
+        document.getElementById('ctx-delete').addEventListener('click', async () => {
+            if (!activeId) return;
+            await fetch(`/comics/${activeId}`, { method: 'DELETE' });
+            const card = document.querySelector(`.book-card[data-id="${activeId}"]`);
+            if (card) {
+                card.remove();
+                if (!document.querySelectorAll('.book-card').length)
+                    window.location.href = '/comics';
+            }
+        });

@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+test-results
 
 # Databases
 *.db
@@ -19,9 +20,10 @@ comics/*
 !comics/.gitkeep
 cache/covers/*
 !cache/covers/.gitkeep
-# Personal docker instructions
-DevInstructions.MD
-
+# Personal docker script
+deploy-local.sh
+deploy-docs.sh
+.docs-deploy-hash
 # IDE
 .idea/*
 !.idea/.gitignore
@@ -31,13 +33,19 @@ DevInstructions.MD
 # Exclude graphify output
 graphify-out
 
-# Test artifacts
-tests/screenshots/
-
-# Misc artifacts
-issue.png
 
 # Landing page build artifacts
 landing/dist/
 landing/.wrangler/
 landing/node_modules/
+.docs-deploy-hash
+
+# Doc build artificats
+site
+
+# Ignore tests till finished integrating
+tests
+playwright.config.ts
+# Test artifacts
+test-results
+tests/screenshots

@@ -12,10 +12,10 @@ docker compose up -d
 
 | Host path | Container path | Purpose |
 |---|---|---|
+| `./data` | `/app/data` | SQLite database (`booknook.db`) |
 | `./books` | `/app/books` | Uploaded EPUB/PDF files |
 | `./comics` | `/app/comics` | Uploaded CBZ/CBR files |
 | `./cache` | `/app/cache` | Extracted cover images |
-| `./booknook.db` | `/app/booknook.db` | SQLite database |
 
 ### Environment
 
@@ -25,6 +25,7 @@ Copy `.env.example` to `.env` and set at minimum:
 SESSION_SECRET=<random-string>
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=<strong-password>
+DATA_DIR=/app/data
 ```
 
 The `docker-compose.yml` reads `.env` automatically via `env_file`.
@@ -34,10 +35,10 @@ The `docker-compose.yml` reads `.env` automatically via `env_file`.
 ```bash
 docker build -t booknook .
 docker run -p 3001:3001 --env-file .env \
+  -v ./data:/app/data \
   -v ./books:/app/books \
   -v ./comics:/app/comics \
   -v ./cache:/app/cache \
-  -v ./booknook.db:/app/booknook.db \
   booknook
 ```
 
@@ -47,15 +48,14 @@ The Dockerfile documents the exact packages needed. For a bare-metal install:
 
 | Package | Purpose |
 |---|---|
-| `imagemagick` | Cover image resizing (`magick` / `convert`) |
+| `imagemagick` | Cover image resizing |
 | `poppler-utils` | PDF cover extraction (`pdftoppm`) |
-| `python3`, `python3-venv` | comic-dl plugin |
-| `chromium` | comic-dl headless browser |
-| `xz-utils` | annas-archive binary extraction |
+| `7zip` | CBZ/CBR archive extraction |
+| `curl` | Health check |
 
 ## Reverse proxy
 
-Booknook itself does not handle TLS. Put it behind nginx or Caddy in production.
+Booknook does not handle TLS. Put it behind nginx or Caddy in production.
 
 Minimal Caddy example:
 
@@ -73,4 +73,4 @@ docker compose build
 docker compose up -d
 ```
 
-The database schema is managed by `database.ts` using `CREATE TABLE IF NOT EXISTS`, so updates are non-destructive.
+The database schema is managed by Sequelize. On startup, new tables are created automatically and missing columns are added to existing tables — no manual migrations needed and existing data is never touched.

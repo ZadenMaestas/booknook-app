@@ -1,70 +1,103 @@
 # Getting Started
 
-## Prerequisites
+## Docker (recommended)
 
-- [Bun](https://bun.sh) v1.0 or later
-- `imagemagick` — for cover image resizing (`magick` / `convert`)
-- `poppler-utils` — for PDF cover extraction (`pdftoppm`)
+Docker is the easiest way to run Booknook. All system dependencies are included in the image.
 
-## Installation
+### 1. Clone the repo
 
 ```bash
-git clone <repo-url>
-cd booknook
-bun install
+git clone https://github.com/ZadenMaestas/booknook-app.git
+cd booknook-app
 ```
 
-## Configuration
-
-Copy the example env file and fill in the values you need:
+### 2. Configure
 
 ```bash
 cp .env.example .env
 ```
 
-At minimum, set `SESSION_SECRET` for any non-development use. See [Configuration](configuration.md) for all options.
+Edit `.env` and set at minimum:
 
-## Running
+```env
+SESSION_SECRET=<random string — run: openssl rand -hex 32>
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=changeme
+DATA_DIR=/app/data
+```
 
-=== "Development"
+See [Configuration](configuration.md) for all options.
 
-    ```bash
-    bun run dev
-    ```
+### 3. Start
 
-    Hot-reloads on file changes via a livereload websocket injected automatically in dev mode.
+```bash
+docker compose up -d
+```
 
-=== "Production"
+Open [http://localhost:3001](http://localhost:3001) and log in with your admin credentials.
 
-    ```bash
-    bun run start
-    ```
+### Persistent data
 
-=== "Docker"
+| Host path | Purpose |
+|---|---|
+| `./data` | SQLite database |
+| `./books` | Uploaded EPUB/PDF files |
+| `./comics` | Uploaded CBZ/CBR files |
+| `./cache` | Extracted cover images |
 
-    ```bash
-    docker compose up -d
-    ```
+These directories are created automatically on first run. Back up `./data` to preserve your library.
 
-    See [Deployment](deployment.md) for details.
+### Updating
+
+```bash
+git pull
+docker compose build
+docker compose up -d
+```
+
+---
+
+## Development
+
+For working on Booknook locally without Docker.
+
+### Prerequisites
+
+- [Bun](https://bun.sh) v1.0 or later
+- `imagemagick` — cover image resizing
+- `poppler-utils` — PDF cover extraction (`pdftoppm`)
+- `7zip` — CBZ/CBR extraction
+
+### Setup
+
+```bash
+git clone https://github.com/ZadenMaestas/booknook-app.git
+cd booknook-app
+bun install
+cp .env.example .env   # edit as needed
+bun run dev            # starts with --watch auto-restart
+```
 
 The server listens on **port 3001** by default (override with `PORT=`).
 
-## First login
+### First login
 
-On first start, if `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set in `.env`, that admin account is created automatically. Otherwise, create the first user by inserting directly into the database or via the `/admin/users` panel once you have an account.
+On first start, if `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set, that admin account is created automatically. The admin panel is at `/library` (manage content) and `/settings` (users, API keys).
 
-## Directory layout
+### Directory layout
 
 ```
-app.ts            — Hono server and all core routes
-database.ts       — bun:sqlite setup and schema migrations
-plugins/          — plugin registry + one subdirectory per plugin
-middleware/       — auth, session, dev livereload
-utils/            — EPUB/CBZ parsing, cover fetching, metadata lookup
-views/            — Pug templates (layout.pug is the shared shell)
-public/           — static assets (foliate-js reader, CSS, icons)
-books/            — uploaded EPUB/PDF files (git-ignored)
-comics/           — uploaded CBZ/CBR files (git-ignored)
-cache/covers/     — extracted cover images (git-ignored)
+app.ts              — Hono server and all core routes
+database.ts         — Sequelize models, schema sync, admin bootstrap
+middleware/
+  auth.ts           — requireAuth, requireAdmin, handleLogin/Logout
+  session.ts        — cookie session middleware
+bookUtils.ts        — EPUB metadata, Google Books lookup, ISBN resolution
+cbzUtils.ts         — CBZ/CBR page extraction, ComicInfo.xml parsing
+convertUtils.ts     — PDF first-page → JPEG
+coverUtils.ts       — cover fetch, cache, resize
+epubStream.ts       — EPUB zip streaming
+plugins/            — plugin registry + one subdirectory per plugin
+views/              — Pug templates (layout.pug is the shared shell)
+public/             — static assets (foliate-js reader, CSS, icons)
 ```

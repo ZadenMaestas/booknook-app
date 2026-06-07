@@ -28,9 +28,16 @@ DevInstructions.MD
 
 # Claude Code
 .claude/
+# Exclude graphify output
+graphify-out
 
 # Test artifacts
 tests/screenshots/
 
 # Misc artifacts
 issue.png
+
+# Landing page build artifacts
+landing/dist/
+landing/.wrangler/
+landing/node_modules/

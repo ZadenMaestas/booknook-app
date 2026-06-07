@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BookNook</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <script>
+        (function () {
+            let t = localStorage.getItem('theme') || 'light';
+            document.documentElement.dataset.theme = t;
+        })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@1.17.0/dist/umd/lucide.min.js" integrity="sha384-bdZtphetAEBgkGZvhZXOFDWc55tHGLqaSo1f4qZtgvEiolEBqlJ9u6FTk+CoLfj0" crossorigin="anonymous"></script>
+    <script type="module" src="/src/script.ts"></script>
+    <script type="module" src="/src/components.ts"></script>
+    <style>
+        /* ── Usage section ── */
+        #usage {
+            background-color: var(--bg);
+            transition: background-color 250ms ease;
+        }
+
+        .usage__intro {
+            font-size: 18px;
+            color: var(--text-muted);
+            margin-bottom: 48px;
+            max-width: 560px;
+        }
+
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .step {
+            display: grid;
+            grid-template-columns: 56px 1fr;
+            gap: 0 24px;
+            position: relative;
+        }
+
+        .step:not(:last-child) .step__line {
+            position: absolute;
+            left: 22px;
+            top: 44px;
+            bottom: -32px;
+            width: 1px;
+            background: rgba(196, 122, 59, 0.25);
+        }
+
+        .step__num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            color: var(--amber);
+            background: rgba(196, 122, 59, 0.1);
+            border: 1px solid rgba(196, 122, 59, 0.3);
+            border-radius: 4px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .step__body {
+            padding-bottom: 48px;
+        }
+
+        .step__title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+            line-height: 44px;
+            transition: color 250ms ease;
+        }
+
+        .step__desc {
+            font-size: 15px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            transition: color 250ms ease;
+        }
+
+        .step__desc a {
+            color: var(--amber);
+        }
+
+        .code-block {
+            position: relative;
+            background: var(--bg-inverse);
+            border-radius: 6px;
+            overflow: hidden;
+            transition: background-color 250ms ease;
+        }
+
+        .code-block__bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            border-bottom: 1px solid rgba(245, 239, 228, 0.07);
+        }
+
+        .code-block__label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            color: rgba(245, 239, 228, 0.35);
+            text-transform: lowercase;
+        }
+
+        .code-block__copy {
+            background: none;
+            border: 1px solid rgba(245, 239, 228, 0.15);
+            border-radius: 3px;
+            color: rgba(245, 239, 228, 0.45);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.05em;
+            padding: 3px 10px;
+            cursor: pointer;
+            transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .code-block__copy:hover {
+            border-color: var(--amber);
+            color: var(--amber);
+            background-color: rgba(196, 122, 59, 0.08);
+        }
+
+        .code-block__copy:active {
+            transform: translateY(1px);
+        }
+
+        .code-block__copy--copied {
+            border-color: var(--sage) !important;
+            color: var(--sage) !important;
+        }
+
+        pre {
+            padding: 20px;
+            overflow-x: auto;
+            margin: 0;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            color: rgba(245, 239, 228, 0.85);
+        }
+
+        .code-comment { color: rgba(245, 239, 228, 0.3); }
+        .code-key     { color: #c47a3b; }
+        .code-val     { color: rgba(245, 239, 228, 0.75); }
+        .code-str     { color: #a8c07a; }
+        .code-cmd     { color: #c47a3b; }
+        .code-arg     { color: rgba(245, 239, 228, 0.85); }
+
+        .step__visit {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--amber);
+            background: rgba(196, 122, 59, 0.08);
+            border: 1px solid rgba(196, 122, 59, 0.25);
+            border-radius: 6px;
+            padding: 12px 20px;
+            text-decoration: none;
+            transition: background-color 150ms ease, border-color 150ms ease;
+        }
+
+        .step__visit:hover {
+            background: rgba(196, 122, 59, 0.15);
+            border-color: rgba(196, 122, 59, 0.5);
+            text-decoration: none;
+        }
+
+        @media (max-width: 550px) {
+            .step { grid-template-columns: 44px 1fr; gap: 0 16px; }
+            .step__num { width: 36px; height: 36px; font-size: 10px; }
+            .step:not(:last-child) .step__line { left: 18px; top: 38px; }
+        }
+
+        /* ── Plugins section ── */
+        #plugins {
+            background-color: var(--bg-alt);
+            transition: background-color 250ms ease;
+        }
+
+        .plugins__layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: start;
+        }
+
+        .plugins__label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            color: var(--amber);
+            background: rgba(196, 122, 59, 0.1);
+            border: 1px solid rgba(196, 122, 59, 0.25);
+            border-radius: 4px;
+            padding: 4px 10px;
+            margin-bottom: 20px;
+        }
+
+        .plugins__title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(26px, 4vw, 36px);
+            font-weight: 700;
+            line-height: 1.15;
+            color: var(--text);
+            margin-bottom: 16px;
+            transition: color 250ms ease;
+        }
+
+        .plugins__desc {
+            font-size: 16px;
+            color: var(--text-muted);
+            line-height: 1.65;
+            margin-bottom: 32px;
+            transition: color 250ms ease;
+        }
+
+        .plugins__bundled-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            transition: color 250ms ease;
+        }
+
+        .plugins__bundled-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .plugin-chip {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(196, 122, 59, 0.15);
+            background: var(--bg);
+            transition: border-color 150ms ease, background-color 250ms ease;
+        }
+
+        .plugin-chip:hover {
+            border-color: rgba(196, 122, 59, 0.35);
+        }
+
+        .plugin-chip--wip {
+            border-style: dashed;
+            opacity: 0.6;
+        }
+
+        .plugin-chip--wip:hover {
+            opacity: 0.8;
+            border-color: rgba(196, 122, 59, 0.35);
+        }
+
+        .plugin-chip__icon--wip {
+            background: rgba(196, 122, 59, 0.06);
+            color: var(--text-muted);
+        }
+
+        .plugin-chip__icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: rgba(196, 122, 59, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--amber);
+            flex-shrink: 0;
+        }
+
+        .plugin-chip__name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            transition: color 250ms ease;
+        }
+
+        .plugin-chip__desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            transition: color 250ms ease;
+        }
+
+        .plugins__cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 24px;
+            font-size: 14px;
+            color: var(--amber);
+            text-decoration: none;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .plugins__cta:hover {
+            text-decoration: underline;
+        }
+
+        .plugins__code-wrap .code-block {
+            font-size: 12.5px;
+        }
+
+        .plugins__code-wrap .code-block code {
+            font-size: 12.5px;
+        }
+
+        @media (max-width: 900px) {
+            .plugins__layout {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .step {
+                grid-template-columns: 40px 1fr;
+                gap: 0 12px;
+            }
+        }
+
+        /* ── Screenshots section ── */
+        #screenshots {
+            background-color: var(--bg);
+            transition: background-color 250ms ease;
+            overflow: hidden;
+        }
+
+        .screenshots__scroll {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            padding: 8px 24px 24px;
+            /* extend past .row padding so images bleed to edges */
+            margin: 0 -24px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(196, 122, 59, 0.35) transparent;
+        }
+
+        .screenshots__scroll::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .screenshots__scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .screenshots__scroll::-webkit-scrollbar-thumb {
+            background: rgba(196, 122, 59, 0.35);
+            border-radius: 2px;
+        }
+
+        .screenshots__item {
+            flex-shrink: 0;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .screenshots__img {
+            height: 520px;
+            width: auto;
+            display: block;
+            border-radius: 10px;
+            border: 1px solid rgba(196, 122, 59, 0.15);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            background: var(--bg-inverse);
+        }
+
+        .screenshots__label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        @media (max-width: 600px) {
+            .screenshots__img {
+                height: 380px;
+            }
+        }
+
+        /* ── Install method tabs ── */
+        .install__tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 40px;
+            border-bottom: 1px solid rgba(196, 122, 59, 0.15);
+            padding-bottom: 0;
+        }
+
+        .install__tab {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 10px 20px;
+            border: none;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            background: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 150ms ease, border-color 150ms ease;
+        }
+
+        .install__tab:hover {
+            color: var(--text);
+        }
+
+        .install__tab--active {
+            color: var(--amber);
+            border-bottom-color: var(--amber);
+        }
+
+        .install__tab svg {
+            opacity: 0.7;
+        }
+
+        .install__tab--active svg {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+<section id="landing">
+    <nav>
+        <div class="nav__container">
+            <img class="logo" src="/assets/logo.svg" alt="">
+            <ul class="nav__links">
+                <li><a class="nav__link" href="#">Home</a></li>
+                <li><a class="nav__link" href="#highlights">Features</a></li>
+                <li><a class="nav__link" href="#plugins">Plugins</a></li>
+                <li><a class="nav__link" href="#screenshots">Screenshots</a></li>
+                <li><a class="nav__link nav__link--primary" href="#usage">Usage</a></li>
+            </ul>
+            <button class="btn__theme" id="themeToggle" aria-label="Toggle dark mode">
+                <i data-lucide="moon" class="icon-moon"></i>
+                <i data-lucide="sun" class="icon-sun"></i>
+            </button>
+            <button class="btn__menu">
+                <i data-lucide="menu"></i>
+            </button>
+            <div class="menu__backdrop">
+                <div class="menu__top">
+                    <span class="menu__wordmark">BookNook</span>
+                    <button class="menu__close" aria-label="Close menu">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <ul class="menu__links">
+                    <li class="menu__list">
+                        <a class="menu__link" href="#">
+                            <span class="menu__link-index">01</span><span>Home</span>
+                        </a>
+                    </li>
+                    <li class="menu__list">
+                        <a class="menu__link" href="#highlights">
+                            <span class="menu__link-index">02</span><span>Features</span>
+                        </a>
+                    </li>
+                    <li class="menu__list">
+                        <a class="menu__link" href="#plugins">
+                            <span class="menu__link-index">03</span><span>Plugins</span>
+                        </a>
+                    </li>
+                    <li class="menu__list">
+                        <a class="menu__link" href="#screenshots">
+                            <span class="menu__link-index">04</span><span>Screenshots</span>
+                        </a>
+                    </li>
+                    <li class="menu__list">
+                        <a class="menu__link" href="#usage">
+                            <span class="menu__link-index">05</span><span>Usage</span>
+                        </a>
+                    </li>
+                </ul>
+                <div class="menu__footer">
+                    <span class="menu__copy">© 2026 BookNook</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <header class="header__container">
+        <div class="header__description">
+            <p class="header__eyebrow">Open source · Self-hosted</p>
+            <h1>Own your <span class="text">library</span>, completely.</h1>
+            <h2>Beautiful book management you run on your own server — no subscriptions, no lock-in.</h2>
+            <div class="header__actions">
+                <a target="_blank" href="https://github.com/zadenmaestas/booknook-app">
+                    <button class="btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"
+                             fill="currentColor" aria-hidden="true">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                        </svg>
+                        Github
+                    </button>
+                </a>
+                <a href="#usage" class="header__link"><i data-lucide="book"></i>Get started<i data-lucide="arrow-right"></i></a>
+            </div>
+        </div>
+        <figure class="header__image">
+            <img src="/assets/hero-illustration-warm.svg" alt="">
+        </figure>
+    </header>
+</section>
+<main>
+    <section id="highlights">
+        <div class="container">
+            <div class="row">
+                <h2 class="section__title">
+                    Why choose <span class="purple">BookNook</span>
+                </h2>
+                <div class="highlight__wrapper">
+                    <div class="highlight">
+                        <div class="highlight__img">
+                            <i data-lucide="zap"></i>
+                        </div>
+                        <h3 class="highlight__subtitle">Easy and Extensible</h3>
+                        <p class="highlight__para">
+                            Get started with our docker image and extend it with your own customizations via the plugin system.
+                        </p>
+                    </div>
+                    <div class="highlight">
+                        <div class="highlight__img">
+                            <i data-lucide="book-open"></i>
+                        </div>
+                        <h3 class="highlight__subtitle">Comic and book support</h3>
+                        <p class="highlight__para">
+                            Built-in comic support on top of our book support
+                        </p>
+                    </div>
+                    <div class="highlight">
+                        <div class="highlight__img">
+                            <i data-lucide="wand-2"></i>
+                        </div>
+                        <h3 class="highlight__subtitle">Curated for You</h3>
+                        <p class="highlight__para">
+                            Personalized recommendations based on your reading history and taste via included AI (Google Gemini) plugin
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="plugins">
+        <div class="container">
+            <div class="row">
+                <div class="plugins__layout">
+                    <div class="plugins__left">
+                        <div class="plugins__label">
+                            <i data-lucide="puzzle" style="width:12px;height:12px;"></i>
+                            Plugin system
+                        </div>
+                        <h2 class="plugins__title">Make it yours,<br>drop in a folder.</h2>
+                        <p class="plugins__desc">
+                            BookNook's plugin API gives you the full server — a scoped router, direct database access, nav injection, and a lifecycle event bus. No build step, no framework. Just a file.
+                        </p>
+                        <p class="plugins__bundled-title">Bundled plugins</p>
+                        <div class="plugins__bundled-list">
+                            <div class="plugin-chip">
+                                <div class="plugin-chip__icon">
+                                    <i data-lucide="sparkles" style="width:16px;height:16px;"></i>
+                                </div>
+                                <div>
+                                    <div class="plugin-chip__name">AI Integration</div>
+                                    <div class="plugin-chip__desc">Personalised recommendations via Google Gemini</div>
+                                </div>
+                            </div>
+                            <div class="plugin-chip plugin-chip--wip">
+                                <div class="plugin-chip__icon plugin-chip__icon--wip">
+                                    <i data-lucide="hammer" style="width:16px;height:16px;"></i>
+                                </div>
+                                <div>
+                                    <div class="plugin-chip__name">More in development!</div>
+                                    <div class="plugin-chip__desc">Additional plugins on the way</div>
+                                </div>
+                            </div>
+                        </div>
+                        <a class="plugins__cta" href="https://github.com/zadenmaestas/booknook-app/blob/master/plugins/pluginCreation.md" target="_blank">
+                            <i data-lucide="book-open" style="width:14px;height:14px;"></i>
+                            Plugin authoring guide →
+                        </a>
+                    </div>
+                    <div class="plugins__code-wrap">
+                        <div class="code-block">
+                            <div class="code-block__bar">
+                                <span class="code-block__label">plugins/my-plugin/plugin.ts</span>
+                            </div>
+                            <pre><code><span class="code-key">export default</span> <span class="code-val">{</span>
+  <span class="code-key">name</span><span class="code-val">:</span> <span class="code-str">'my-plugin'</span><span class="code-val">,</span>
+
+  <span class="code-key">register</span><span class="code-val">({ db, router, addNavItem, on }) {</span>
+    <span class="code-comment">// Your own DB tables</span>
+    db<span class="code-val">.</span><span class="code-cmd">prepare</span><span class="code-val">(</span><span class="code-str">`CREATE TABLE IF NOT EXISTS
+      myplugin_notes (id INTEGER PRIMARY KEY,
+      book_id INTEGER, body TEXT)`</span><span class="code-val">).</span><span class="code-cmd">run</span><span class="code-val">();</span>
+
+    <span class="code-comment">// Routes at /plugins/my-plugin/…</span>
+    router<span class="code-val">.</span><span class="code-cmd">get</span><span class="code-val">(</span><span class="code-str">'/'</span><span class="code-val">, (c) =></span>
+      c<span class="code-val">.</span><span class="code-cmd">json</span><span class="code-val">({ ok:</span> <span class="code-str">true</span> <span class="code-val">})</span>
+    <span class="code-val">);</span>
+
+    <span class="code-comment">// Sidebar link</span>
+    <span class="code-cmd">addNavItem</span><span class="code-val">({</span>
+      <span class="code-key">label</span><span class="code-val">:</span> <span class="code-str">'My Plugin'</span><span class="code-val">,</span>
+      <span class="code-key">href</span><span class="code-val">:</span>  <span class="code-str">'/plugins/my-plugin'</span><span class="code-val">,</span>
+    <span class="code-val">});</span>
+
+    <span class="code-comment">// React to core events</span>
+    <span class="code-cmd">on</span><span class="code-val">(</span><span class="code-str">'bookDeleted'</span><span class="code-val">, ({ id }) => {</span>
+      db<span class="code-val">.</span><span class="code-cmd">prepare</span><span class="code-val">(</span><span class="code-str">'DELETE FROM myplugin_notes
+        WHERE book_id = ?'</span><span class="code-val">).</span><span class="code-cmd">run</span><span class="code-val">(id);</span>
+    <span class="code-val">});</span>
+  <span class="code-val">},</span>
+<span class="code-val">};</span></code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="screenshots">
+        <div class="container">
+            <div class="row">
+                <p class="header__eyebrow">In action</p>
+                <h2 class="section__title">See what you're <span class="purple">getting</span></h2>
+            </div>
+            <div class="row">
+                <div class="screenshots__scroll">
+                    <div class="screenshots__item">
+                        <img class="screenshots__img" src="/screenshots/library.png" alt="Library view">
+                        <span class="screenshots__label">Library</span>
+                    </div>
+                    <div class="screenshots__item">
+                        <img class="screenshots__img" src="/screenshots/comics.png" alt="Comics view">
+                        <span class="screenshots__label">Comics</span>
+                    </div>
+                    <div class="screenshots__item">
+                        <img class="screenshots__img" src="/screenshots/manage.png" alt="Manage view">
+                        <span class="screenshots__label">Manage</span>
+                    </div>
+                    <div class="screenshots__item">
+                        <img class="screenshots__img" src="/screenshots/ai-integration.png" alt="AI integration">
+                        <span class="screenshots__label">AI</span>
+                    </div>
+                    <div class="screenshots__item">
+                        <img class="screenshots__img" src="/screenshots/settings.png" alt="Settings view">
+                        <span class="screenshots__label">Settings</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="usage">
+        <div class="container">
+            <div class="row">
+                <p class="header__eyebrow">Quickstart</p>
+                <h2 class="section__title">Up and running in <span class="purple">minutes</span></h2>
+                <p class="usage__intro">Pick your install method. BookNook runs entirely on your own machine — your data never leaves.</p>
+
+                <div class="install__tabs" role="tablist">
+                    <button class="install__tab install__tab--active" data-panel="docker" role="tab" aria-selected="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 6h2v2h-2zm-4 0h2v2H9zm-4 0h2v2H5zm12 3h2v2h-2zm-4 0h2v2h-2zm-4 0h2v2H9zm-4 0h2v2H5zm-4 0h2v2H1zm20 0h2v2h-2zM5 3h2v2H5zm4 0h2v2H9zm4 0h2v2h-2zM1 12h22v2c0 2.761-2.239 5-5 5h-1.5c-.828 0-1.5-.672-1.5-1.5V17H9v.5c0 .828-.672 1.5-1.5 1.5H6c-2.761 0-5-2.239-5-5v-2z"/></svg>
+                        Docker
+                    </button>
+                    <button class="install__tab" data-panel="bun" role="tab" aria-selected="false">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-5h2v2h-2zm0-8h2v6h-2z"/></svg>
+                        Bun (manual)
+                    </button>
+                </div>
+
+                <!-- Docker steps -->
+                <div class="steps" id="panel-docker">
+
+                    <!-- Step 1 -->
+                    <div class="step">
+                        <div class="step__line"></div>
+                        <div class="step__num">01</div>
+                        <div class="step__body">
+                            <p class="step__title">Create <code style="font-size:18px;color:var(--amber);background:none;">compose.yml</code></p>
+                            <p class="step__desc">Paste this into a new file in an empty directory.</p>
+                            <div class="code-block">
+                                <div class="code-block__bar">
+                                    <span class="code-block__label">compose.yml</span>
+                                    <button class="code-block__copy" data-copy="services:
+  booknook:
+    image: zadenm/booknook:main
+    ports:
+      - &quot;3001:3001&quot;
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /app/data
+    volumes:
+      - ./data:/app/data
+      - ./books:/app/books
+      - ./comics:/app/comics
+      - ./cache:/app/cache
+    restart: unless-stopped">
+                                        <i data-lucide="copy" style="width:12px;height:12px;"></i> copy
+                                    </button>
+                                </div>
+                                <pre><code><span class="code-key">services</span><span class="code-val">:</span>
+  <span class="code-key">booknook</span><span class="code-val">:</span>
+    <span class="code-key">image</span><span class="code-val">:</span> <span class="code-str">zadenm/booknook:main</span>
+    <span class="code-key">ports</span><span class="code-val">:</span>
+      <span class="code-val">-</span> <span class="code-str">"3001:3001"</span>
+    <span class="code-key">env_file</span><span class="code-val">:</span> <span class="code-str">.env</span>
+    <span class="code-key">environment</span><span class="code-val">:</span>
+      <span class="code-key">NODE_ENV</span><span class="code-val">:</span> <span class="code-str">production</span>
+      <span class="code-key">DATA_DIR</span><span class="code-val">:</span> <span class="code-str">/app/data</span>
+    <span class="code-key">volumes</span><span class="code-val">:</span>
+      <span class="code-val">-</span> <span class="code-str">./data:/app/data</span>
+      <span class="code-val">-</span> <span class="code-str">./books:/app/books</span>
+      <span class="code-val">-</span> <span class="code-str">./comics:/app/comics</span>
+      <span class="code-val">-</span> <span class="code-str">./cache:/app/cache</span>
+    <span class="code-key">restart</span><span class="code-val">:</span> <span class="code-str">unless-stopped</span></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="step">
+                        <div class="step__line"></div>
+                        <div class="step__num">02</div>
+                        <div class="step__body">
+                            <p class="step__title">Create <code style="font-size:18px;color:var(--amber);background:none;">.env</code></p>
+                            <p class="step__desc">Set your admin credentials and a random session secret. Generate one with <code style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-muted);">openssl rand -hex 32</code>.</p>
+                            <div class="code-block">
+                                <div class="code-block__bar">
+                                    <span class="code-block__label">.env</span>
+                                    <button class="code-block__copy" data-copy="ADMIN_USERNAME=admin
+ADMIN_PASSWORD=changeme
+SESSION_SECRET=paste-your-random-string-here">
+                                        <i data-lucide="copy" style="width:12px;height:12px;"></i> copy
+                                    </button>
+                                </div>
+                                <pre><code><span class="code-key">ADMIN_USERNAME</span><span class="code-val">=</span><span class="code-str">admin</span>
+<span class="code-key">ADMIN_PASSWORD</span><span class="code-val">=</span><span class="code-str">changeme</span>
+<span class="code-key">SESSION_SECRET</span><span class="code-val">=</span><span class="code-str">paste-your-random-string-here</span></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="step">
+                        <div class="step__line"></div>
+                        <div class="step__num">03</div>
+                        <div class="step__body">
+                            <p class="step__title">Start BookNook</p>
+                            <p class="step__desc">Run this from the same directory as your <code style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-muted);">compose.yml</code>.</p>
+                            <div class="code-block">
+                                <div class="code-block__bar">
+                                    <span class="code-block__label">shell</span>
+                                    <button class="code-block__copy" data-copy="docker compose up -d">
+                                        <i data-lucide="copy" style="width:12px;height:12px;"></i> copy
+                                    </button>
+                                </div>
+                                <pre><code><span class="code-comment">$</span> <span class="code-cmd">docker compose</span> <span class="code-arg">up -d</span></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="step">
+                        <div class="step__num">04</div>
+                        <div class="step__body">
+                            <p class="step__title">Open your browser</p>
+                            <p class="step__desc">BookNook is ready. Log in with the credentials you set in <code style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-muted);">.env</code>.</p>
+                            <a class="step__visit" href="http://localhost:3001" target="_blank">
+                                <i data-lucide="external-link" style="width:14px;height:14px;"></i>
+                                localhost:3001
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Bun steps -->
+                <div class="steps" id="panel-bun" style="display:none;">
+
+                    <!-- Step 1 -->
+                    <div class="step">
+                        <div class="step__line"></div>
+                        <div class="step__num">01</div>
+                        <div class="step__body">
+                            <p class="step__title">Install <a href="https://bun.sh" target="_blank" style="color:var(--amber);text-decoration:underline;">Bun</a> and system deps</p>
+                            <p class="step__desc">Bun is the runtime. The system packages handle PDF cover extraction and comic archives.</p>
+                            <div class="code-block">
+                                <div class="code-block__bar">
+                                    <span class="code-block__label">shell</span>
+                                    <button class="code-block__copy" data-copy="curl -fsSL https://bun.sh/install | bash
+# Debian/Ubuntu system deps:
+sudo apt install -y poppler-utils imagemagick 7zip">
+                                        <i data-lucide="copy" style="width:12px;height:12px;"></i> copy
+                                    </button>
+                                </div>
+                                <pre><code><span class="code-comment">$</span> <span class="code-cmd">curl</span> <span class="code-arg">-fsSL https://bun.sh/install | bash</span>
+<span class="code-comment"># Debian/Ubuntu system deps:</span>
+<span class="code-comment">$</span> <span class="code-cmd">sudo apt install</span> <span class="code-arg">-y poppler-utils imagemagick 7zip</span></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="step">
+                        <div class="step__line"></div>
+                        <div class="step__num">02</div>
+                        <div class="step__body">
+                            <p class="step__title">Clone and install</p>
+                            <p class="step__desc">Clone the repo and install Node dependencies.</p>
+                            <div class="code-block">
+                                <div class="code-block__bar">
+                                    <span class="code-block__label">shell</span>
+                                    <button class="code-block__copy" data-copy="git clone https://github.com/zadenmaestas/booknook-app
+cd booknook-app
+bun install">
+                                        <i data-lucide="copy" style="width:12px;height:12px;"></i> copy
+                                    </button>
+                                </div>
+                                <pre><code><span class="code-comment">$</span> <span class="code-cmd">git clone</span> <span class="code-arg">https://github.com/zadenmaestas/booknook-app</span>
+<span class="code-comment">$</span> <span class="code-cmd">cd</span> <span class="code-arg">booknook-app</span>
+<span class="code-comment">$</span> <span class="code-cmd">bun install</span></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="step">
+                        <div class="step__line"></div>
+                        <div class="step__num">03</div>
+                        <div class="step__body">
+                            <p class="step__title">Configure <code style="font-size:18px;color:var(--amber);background:none;">.env</code></p>
+                            <p class="step__desc">Copy the example file and set your credentials. Generate a secret with <code style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-muted);">openssl rand -hex 32</code>.</p>
+                            <div class="code-block">
+                                <div class="code-block__bar">
+                                    <span class="code-block__label">shell</span>
+                                    <button class="code-block__copy" data-copy="cp .env.example .env
+# Edit .env and set ADMIN_USERNAME, ADMIN_PASSWORD, SESSION_SECRET">
+                                        <i data-lucide="copy" style="width:12px;height:12px;"></i> copy
+                                    </button>
+                                </div>
+                                <pre><code><span class="code-comment">$</span> <span class="code-cmd">cp</span> <span class="code-arg">.env.example .env</span>
+<span class="code-comment"># Edit .env: set ADMIN_USERNAME, ADMIN_PASSWORD, SESSION_SECRET</span></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="step">
+                        <div class="step__num">04</div>
+                        <div class="step__body">
+                            <p class="step__title">Start BookNook</p>
+                            <p class="step__desc">Use <code style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-muted);">bun run dev</code> for hot-reload during development.</p>
+                            <div class="code-block" style="margin-bottom:24px;">
+                                <div class="code-block__bar">
+                                    <span class="code-block__label">shell</span>
+                                    <button class="code-block__copy" data-copy="bun run start">
+                                        <i data-lucide="copy" style="width:12px;height:12px;"></i> copy
+                                    </button>
+                                </div>
+                                <pre><code><span class="code-comment">$</span> <span class="code-cmd">bun run start</span></code></pre>
+                            </div>
+                            <a class="step__visit" href="http://localhost:3001" target="_blank">
+                                <i data-lucide="external-link" style="width:14px;height:14px;"></i>
+                                localhost:3001
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+<footer>
+    <div class="container">
+        <div class="row row__column">
+            <a href="#" class="footer__link">
+                <figure class="footer__logo">
+                    <img src="assets/logo-dark.svg" class="footer__logo--img" alt="Bookstore Logo">
+                </figure>
+            </a>
+            <div class="footer__list">
+                <a href="#" class="footer__link">Home</a>
+                <a href="#highlights" class="footer__link">Features</a>
+                <a href="#usage" class="footer__link">Usage</a>
+            </div>
+            <div class="footer__copyright">Copyright &copy; 2026 Zaden Maestas</div>
+        </div>
+    </div>
+</footer>
+<script>
+    document.querySelectorAll('.code-block__copy').forEach(btn => {
+        btn.addEventListener('click', () => {
+            navigator.clipboard.writeText(btn.dataset.copy).then(() => {
+                const orig = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;"></i> copied';
+                btn.classList.add('code-block__copy--copied');
+                if (window.lucide) lucide.createIcons();
+                setTimeout(() => {
+                    btn.innerHTML = orig;
+                    btn.classList.remove('code-block__copy--copied');
+                    if (window.lucide) lucide.createIcons();
+                }, 2000);
+            });
+        });
+    });
+
+    // Install method tabs
+    document.querySelectorAll('.install__tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.install__tab').forEach(t => {
+                t.classList.remove('install__tab--active');
+                t.setAttribute('aria-selected', 'false');
+            });
+            tab.classList.add('install__tab--active');
+            tab.setAttribute('aria-selected', 'true');
+            const panel = tab.dataset.panel;
+            document.getElementById('panel-docker').style.display = panel === 'docker' ? '' : 'none';
+            document.getElementById('panel-bun').style.display = panel === 'bun' ? '' : 'none';
+        });
+    });
+</script>
+</body>
+</html>

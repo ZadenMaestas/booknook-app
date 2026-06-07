@@ -7,9 +7,13 @@
     "start": "bun run app.ts",
     "dev": "bun --watch run app.ts",
     "typecheck": "tsc --noEmit",
-    "test:reader": "bun run tests/reader.ts"
+    "test:reader": "bun run tests/reader.ts",
+    "landing:dev": "bun run --cwd landing dev",
+    "landing:build": "bun run --cwd landing build",
+    "landing:deploy": "bun run --cwd landing deploy"
   },
   "private": true,
+  "workspaces": ["landing"],
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@gxl/epub-parser": "^2.0.4",

@@ -3,6 +3,18 @@
 A self-hosted personal library server for ebooks, comics, and audiobooks. Runs on [Bun](https://bun.sh) with Hono,
 SQLite, and a plugin system for extending functionality.
 
+## Screenshots
+
+| Library | Comics |
+|---|---|
+| ![Library](screenshots/library.png) | ![Comics](screenshots/comics.png) |
+
+| AI Integration | Settings |
+|---|---|
+| ![AI Integration](screenshots/ai-integration.png) | ![Settings](screenshots/settings.png) |
+
+![Manage](screenshots/manage.png)
+
 ## Features
 
 - **Ebooks** — upload and read EPUB files with a full in-browser reader (foliate-js)
@@ -64,5 +76,9 @@ Bundled plugins:
 ```bash
 bun run start        # production start
 bun run dev          # dev mode with livereload
-bun run test:reader  # epub reader smoke tests
+
+
+bun run landing:dev     # vite dev server for landing page
+bun run landing:build   # production build
+bun run landing:deploy  # wrangler deploy to Cloudflare Workers
 ```

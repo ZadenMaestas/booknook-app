@@ -921,6 +921,11 @@
 </thead>
 <tbody>
 <tr>
+<td><code>./data</code></td>
+<td><code>/app/data</code></td>
+<td>SQLite database (<code>booknook.db</code>)</td>
+</tr>
+<tr>
 <td><code>./books</code></td>
 <td><code>/app/books</code></td>
 <td>Uploaded EPUB/PDF files</td>
@@ -935,11 +940,6 @@
 <td><code>/app/cache</code></td>
 <td>Extracted cover images</td>
 </tr>
-<tr>
-<td><code>./booknook.db</code></td>
-<td><code>/app/booknook.db</code></td>
-<td>SQLite database</td>
-</tr>
 </tbody>
 </table>
 <h3 id="environment">Environment</h3>
@@ -947,15 +947,16 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>SESSION_SECRET=&lt;random-string&gt;
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>ADMIN_USERNAME=admin
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>ADMIN_PASSWORD=&lt;strong-password&gt;
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>DATA_DIR=/app/data
 </code></pre></div>
 <p>The <code>docker-compose.yml</code> reads <code>.env</code> automatically via <code>env_file</code>.</p>
 <h2 id="building-the-image-manually">Building the image manually</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>booknook<span class="w"> </span>.
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">3001</span>:3001<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>-v<span class="w"> </span>./books:/app/books<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>-v<span class="w"> </span>./comics:/app/comics<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>-v<span class="w"> </span>./cache:/app/cache<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>-v<span class="w"> </span>./booknook.db:/app/booknook.db<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>-v<span class="w"> </span>./data:/app/data<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>-v<span class="w"> </span>./books:/app/books<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>-v<span class="w"> </span>./comics:/app/comics<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>-v<span class="w"> </span>./cache:/app/cache<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span>booknook
 </code></pre></div>
 <h2 id="system-dependencies-non-docker">System dependencies (non-Docker)</h2>
@@ -970,28 +971,24 @@
 <tbody>
 <tr>
 <td><code>imagemagick</code></td>
-<td>Cover image resizing (<code>magick</code> / <code>convert</code>)</td>
+<td>Cover image resizing</td>
 </tr>
 <tr>
 <td><code>poppler-utils</code></td>
 <td>PDF cover extraction (<code>pdftoppm</code>)</td>
 </tr>
 <tr>
-<td><code>python3</code>, <code>python3-venv</code></td>
-<td>comic-dl plugin</td>
+<td><code>7zip</code></td>
+<td>CBZ/CBR archive extraction</td>
 </tr>
 <tr>
-<td><code>chromium</code></td>
-<td>comic-dl headless browser</td>
-</tr>
-<tr>
-<td><code>xz-utils</code></td>
-<td>annas-archive binary extraction</td>
+<td><code>curl</code></td>
+<td>Health check</td>
 </tr>
 </tbody>
 </table>
 <h2 id="reverse-proxy">Reverse proxy</h2>
-<p>Booknook itself does not handle TLS. Put it behind nginx or Caddy in production.</p>
+<p>Booknook does not handle TLS. Put it behind nginx or Caddy in production.</p>
 <p>Minimal Caddy example:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>your.domain {
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    reverse_proxy localhost:3001
@@ -1002,7 +999,7 @@
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>build
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div>
-<p>The database schema is managed by <code>database.ts</code> using <code>CREATE TABLE IF NOT EXISTS</code>, so updates are non-destructive.</p>
+<p>The database schema is managed by Sequelize. On startup, new tables are created automatically and missing columns are added to existing tables — no manual migrations needed and existing data is never touched.</p>
 
 
 

@@ -505,21 +505,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#series-grouping" class="md-nav__link">
+  <a href="#series-browsing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Series grouping
+        Series browsing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Series browsing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#series-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Series page
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#reading" class="md-nav__link">
+  <a href="#descriptions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reading
+        Descriptions
       
     </span>
   </a>
@@ -531,6 +548,17 @@
     <span class="md-ellipsis">
       
         Reading status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#filename-naming-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filename naming schema
       
     </span>
   </a>
@@ -821,21 +849,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#series-grouping" class="md-nav__link">
+  <a href="#series-browsing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Series grouping
+        Series browsing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Series browsing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#series-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Series page
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#reading" class="md-nav__link">
+  <a href="#descriptions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reading
+        Descriptions
       
     </span>
   </a>
@@ -847,6 +892,17 @@
     <span class="md-ellipsis">
       
         Reading status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#filename-naming-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filename naming schema
       
     </span>
   </a>
@@ -916,19 +972,80 @@
 </tbody>
 </table>
 <h2 id="uploading">Uploading</h2>
-<p>Use the upload button on the <code>/comics</code> page. On upload, Booknook:</p>
+<p>Drag and drop files onto the comics page or use the upload button. Any filename is accepted — no specific naming convention is required.</p>
+<p>On upload, Booknook:</p>
 <ol>
 <li>Saves the file to <code>comics/</code></li>
-<li>Parses <code>ComicInfo.xml</code> from inside the archive (if present) to extract title, series, and issue number</li>
-<li>Falls back to the filename if no <code>ComicInfo.xml</code> is found</li>
+<li>Parses <code>ComicInfo.xml</code> from inside the archive (if present) to extract title, series, issue number, and year</li>
+<li>Falls back to filename parsing for series/issue/year if no <code>ComicInfo.xml</code> is found</li>
 <li>Extracts the first image as a cover and saves it to <code>cache/covers/</code></li>
 </ol>
-<h2 id="series-grouping">Series grouping</h2>
-<p>Comics with the same <code>series</code> value from <code>ComicInfo.xml</code> are automatically grouped on the library page. Issues are sorted numerically; specials (non-numeric issue values) are sorted alphabetically and placed after numbered issues.</p>
-<h2 id="reading">Reading</h2>
-<p>Click a comic to open the page-by-page reader. Page position is saved automatically per-user.</p>
+<p>The upload response is a JSON array of per-file results (<code>imported | duplicate | error</code>). Errors are shown as a toast.</p>
+<h2 id="series-browsing">Series browsing</h2>
+<p>The <code>/comics</code> page shows one card per series (using the first issue's cover) plus standalone comics. Clicking a series card opens the series detail page.</p>
+<h3 id="series-page">Series page</h3>
+<p>Each series has a dedicated page at <code>/comics/series/:name</code> with:</p>
+<ul>
+<li><strong>Hero section</strong> — large cover image, series name, year range, issue count, read count, and progress bar</li>
+<li><strong>Continue Reading button</strong> — links to the first <em>reading</em> issue, or the first unread issue, or issue #1 (if all read, shows <em>Read Again</em>)</li>
+<li><strong>Issue grid</strong> — all issues sorted numerically, each showing the issue number badge, year, and page count</li>
+<li><strong>Series description</strong> — shown below the hero when set</li>
+<li><strong>Issue descriptions</strong> — shown as a subtitle on each issue card when set</li>
+</ul>
+<h2 id="descriptions">Descriptions</h2>
+<p>Both series and individual issues support a free-text description field:</p>
+<ul>
+<li><strong>Series description</strong> — edit from the <strong>Series</strong> tab in the manage page (<code>/library</code>)</li>
+<li><strong>Issue description</strong> — edit from the comic's Edit button in the manage page</li>
+</ul>
 <h2 id="reading-status">Reading status</h2>
-<p>Same statuses as books: <code>none</code>, <code>want</code>, <code>reading</code>, <code>read</code>.</p>
+<p>Status is tracked per comic and updated automatically:</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Set when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>none</code></td>
+<td>Default on upload</td>
+</tr>
+<tr>
+<td><code>want</code></td>
+<td>Set manually via context menu</td>
+</tr>
+<tr>
+<td><code>reading</code></td>
+<td>Set automatically when the reader is opened</td>
+</tr>
+<tr>
+<td><code>read</code></td>
+<td>Set automatically when the last page is reached</td>
+</tr>
+</tbody>
+</table>
+<p>Right-click any issue card to set status manually.</p>
+<h2 id="filename-naming-schema">Filename naming schema</h2>
+<p>When no <code>ComicInfo.xml</code> is present, Booknook parses the filename to extract series, year, and issue. Two patterns are recognised (leading zeros in the issue number are stripped):</p>
+<p><strong>With year</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Series Name (YYYY) NNN.cbz
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Series Name (YYYY) #NNN.cbz
+</code></pre></div>
+Examples:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Rick And Morty (2015) 001.cbz        → series: Rick And Morty, year: 2015, issue: 1
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>The Batman (2021) #056.cbz           → series: The Batman,     year: 2021, issue: 56
+</code></pre></div></p>
+<p><strong>Without year</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Series Name NNN.cbz
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Series Name #NNN.cbz
+</code></pre></div>
+Examples:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Saga 001.cbz                         → series: Saga,  issue: 1
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>Invincible #100.cbz                  → series: Invincible, issue: 100
+</code></pre></div></p>
+<p>If neither pattern matches, the full filename (minus extension) is used as the title with no series or issue assigned. <code>ComicInfo.xml</code> always takes precedence over filename parsing.</p>
 <h2 id="comicinfoxml">ComicInfo.xml</h2>
 <p>Booknook reads the following fields from <code>ComicInfo.xml</code>:</p>
 <table>
@@ -951,6 +1068,10 @@
 <td><code>&lt;Number&gt;</code></td>
 <td>Issue number</td>
 </tr>
+<tr>
+<td><code>&lt;Year&gt;</code></td>
+<td>Publication year</td>
+</tr>
 </tbody>
 </table>
 <h2 id="api-endpoints">API endpoints</h2>
@@ -966,12 +1087,27 @@
 <tr>
 <td><code>GET</code></td>
 <td><code>/comics</code></td>
-<td>Comics library page</td>
+<td>Comics library — series cards + standalone</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/comics/series/:name</code></td>
+<td>Series detail page</td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td><code>/comics/series/:name</code></td>
+<td>Update series description <code>{ description }</code></td>
 </tr>
 <tr>
 <td><code>POST</code></td>
 <td><code>/comics/upload</code></td>
-<td>Upload a CBZ/CBR file (multipart <code>comic</code>)</td>
+<td>Upload CBZ/CBR files (multipart <code>comic</code>)</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/comics/ingest</code></td>
+<td>Ingest via API key (Bearer token auth)</td>
 </tr>
 <tr>
 <td><code>GET</code></td>
@@ -981,7 +1117,7 @@
 <tr>
 <td><code>GET</code></td>
 <td><code>/comics/pages/:id</code></td>
-<td>JSON list of page filenames in the archive</td>
+<td>JSON list of page entries in the archive</td>
 </tr>
 <tr>
 <td><code>GET</code></td>
@@ -997,6 +1133,16 @@
 <td><code>PATCH</code></td>
 <td><code>/comics/:id/status</code></td>
 <td>Update reading status <code>{ status }</code></td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td><code>/comics/:id</code></td>
+<td>Edit metadata <code>{ title, series, issue, year, description }</code></td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td><code>/comics/bulk</code></td>
+<td>Bulk update <code>{ ids, updates: { series?, year? } }</code></td>
 </tr>
 <tr>
 <td><code>DELETE</code></td>

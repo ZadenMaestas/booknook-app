@@ -877,6 +877,7 @@
 <li><a href="https://bun.sh">Bun</a> v1.0 or later</li>
 <li><code>imagemagick</code> — for cover image resizing (<code>magick</code> / <code>convert</code>)</li>
 <li><code>poppler-utils</code> — for PDF cover extraction (<code>pdftoppm</code>)</li>
+<li><code>7zip</code> — for CBZ/CBR extraction</li>
 </ul>
 <h2 id="installation">Installation</h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>&lt;repo-url&gt;
@@ -894,7 +895,7 @@
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>bun<span class="w"> </span>run<span class="w"> </span>dev
 </code></pre></div>
-<p>Hot-reloads on file changes via a livereload websocket injected automatically in dev mode.</p>
+<p>Auto-restarts on file changes via Bun's <code>--watch</code> flag.</p>
 </div>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>bun<span class="w"> </span>run<span class="w"> </span>start
@@ -909,18 +910,24 @@
 </div>
 <p>The server listens on <strong>port 3001</strong> by default (override with <code>PORT=</code>).</p>
 <h2 id="first-login">First login</h2>
-<p>On first start, if <code>ADMIN_USERNAME</code> and <code>ADMIN_PASSWORD</code> are set in <code>.env</code>, that admin account is created automatically. Otherwise, create the first user by inserting directly into the database or via the <code>/admin/users</code> panel once you have an account.</p>
+<p>On first start, if <code>ADMIN_USERNAME</code> and <code>ADMIN_PASSWORD</code> are set in <code>.env</code>, that admin account is created automatically. The admin panel is available at <code>/library</code> (manage books and comics) and <code>/settings</code> (users, API keys, migrations).</p>
 <h2 id="directory-layout">Directory layout</h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>app.ts            — Hono server and all core routes
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>database.ts       — bun:sqlite setup and schema migrations
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>plugins/          — plugin registry + one subdirectory per plugin
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>middleware/       — auth, session, dev livereload
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>utils/            — EPUB/CBZ parsing, cover fetching, metadata lookup
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>views/            — Pug templates (layout.pug is the shared shell)
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>public/           — static assets (foliate-js reader, CSS, icons)
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>books/            — uploaded EPUB/PDF files (git-ignored)
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>comics/           — uploaded CBZ/CBR files (git-ignored)
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>cache/covers/     — extracted cover images (git-ignored)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>app.ts              — Hono server and all core routes
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>database.ts         — Sequelize models, schema sync, admin bootstrap
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>middleware/
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  auth.ts           — requireAuth, requireAdmin, handleLogin/Logout
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>  session.ts        — cookie session middleware
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>bookUtils.ts        — EPUB metadata, Google Books lookup, ISBN resolution
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>cbzUtils.ts         — CBZ/CBR page extraction, ComicInfo.xml parsing
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>convertUtils.ts     — PDF first-page → JPEG
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>coverUtils.ts       — cover fetch, cache, resize
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>epubStream.ts       — EPUB zip streaming
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>plugins/            — plugin registry + one subdirectory per plugin
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>views/              — Pug templates (layout.pug is the shared shell)
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>public/             — static assets (foliate-js reader, CSS, icons)
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>books/              — uploaded EPUB/PDF files (git-ignored)
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>comics/             — uploaded CBZ/CBR files (git-ignored)
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>cache/covers/       — extracted cover images (git-ignored)
 </code></pre></div>
 
 

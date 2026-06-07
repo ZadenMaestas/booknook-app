@@ -396,10 +396,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#plugin-variables" class="md-nav__link">
+  <a href="#optional-integrations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Plugin variables
+        Optional integrations
       
     </span>
   </a>
@@ -786,10 +786,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#plugin-variables" class="md-nav__link">
+  <a href="#optional-integrations" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Plugin variables
+        Optional integrations
       
     </span>
   </a>
@@ -842,9 +842,9 @@
 <tbody>
 <tr>
 <td><code>SESSION_SECRET</code></td>
-<td>no</td>
-<td><code>dev-secret</code></td>
-<td>Secret used to sign session cookies. Set a strong random value in production.</td>
+<td><strong>yes</strong></td>
+<td>—</td>
+<td>Secret used to sign session cookies. Generate with <code>openssl rand -hex 32</code>.</td>
 </tr>
 <tr>
 <td><code>PORT</code></td>
@@ -853,15 +853,15 @@
 <td>Port the server listens on.</td>
 </tr>
 <tr>
-<td><code>NODE_ENV</code></td>
+<td><code>DATA_DIR</code></td>
 <td>no</td>
 <td>—</td>
-<td>Set to <code>production</code> to disable the livereload overlay.</td>
+<td>Directory for the SQLite database file. Useful in Docker to point at a volume.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="admin-bootstrap">Admin bootstrap</h2>
-<p>These are only read at startup. If the named user doesn't exist yet, it is created with admin privileges.</p>
+<p>Read only at startup. If the named user does not exist yet, it is created with admin privileges.</p>
 <table>
 <thead>
 <tr>
@@ -883,7 +883,7 @@
 </tr>
 </tbody>
 </table>
-<h2 id="plugin-variables">Plugin variables</h2>
+<h2 id="optional-integrations">Optional integrations</h2>
 <table>
 <thead>
 <tr>
@@ -894,24 +894,14 @@
 </thead>
 <tbody>
 <tr>
-<td><code>GEMINI_API_KEY</code></td>
-<td>ai-integration</td>
-<td>Google Gemini API key for AI book recommendations.</td>
-</tr>
-<tr>
 <td><code>GOOGLE_BOOKS_API_KEY</code></td>
 <td>core</td>
-<td>Improves cover art fetch quality via the Google Books API.</td>
+<td>Improves book metadata and cover quality via the Google Books API.</td>
 </tr>
 <tr>
-<td><code>ANNAS_SECRET_KEY</code></td>
-<td>annas-archive</td>
-<td>Anna's Archive API key for search and download.</td>
-</tr>
-<tr>
-<td><code>ANNAS_BASE_URL</code></td>
-<td>annas-archive</td>
-<td>Override the default Anna's Archive mirror URL.</td>
+<td><code>GEMINI_API_KEY</code></td>
+<td>ai-integration plugin</td>
+<td>Google Gemini API key for AI book recommendations.</td>
 </tr>
 </tbody>
 </table>
@@ -920,11 +910,10 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>ADMIN_USERNAME=admin
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>ADMIN_PASSWORD=changeme
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a># Optional: better cover images
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a># Optional
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>GOOGLE_BOOKS_API_KEY=
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a># Optional: AI recommendations
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>GEMINI_API_KEY=
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>GEMINI_API_KEY=
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>DATA_DIR=./data
 </code></pre></div>
 
 

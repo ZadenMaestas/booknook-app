@@ -867,58 +867,59 @@
 </tr>
 <tr>
 <td><code>.pdf</code></td>
-<td>Converted to EPUB at upload time; cover extracted from first page</td>
+<td>Cover extracted from first page via <code>pdftoppm</code>; metadata looked up by title via Google Books</td>
 </tr>
 <tr>
 <td><code>.mobi</code>, <code>.azw</code>, <code>.azw3</code></td>
-<td>Accepted but not converted</td>
+<td>Accepted and stored</td>
 </tr>
 <tr>
 <td><code>.djvu</code>, <code>.fb2</code></td>
-<td>Accepted but not converted</td>
+<td>Accepted and stored</td>
 </tr>
 </tbody>
 </table>
 <h2 id="uploading">Uploading</h2>
-<p>Drag and drop one or more files onto the library page, or use the upload button. Multiple files are processed in parallel. Duplicate files (same path) are silently skipped.</p>
+<p>Drag and drop one or more files onto the library page, or use the upload button. Multiple files are processed in parallel.</p>
 <p>On upload, Booknook:</p>
 <ol>
 <li>Saves the file to <code>books/</code></li>
-<li>Extracts title, author, and ISBN from the file metadata</li>
-<li>For PDFs: looks up metadata by filename via the Google Books API</li>
-<li>Normalises to EPUB where possible</li>
-<li>Fetches and caches a cover image (from the file or Google Books)</li>
+<li>Extracts title, author, and ISBN from file metadata (EPUB) or filename (PDF)</li>
+<li>Fetches and caches a cover image from the file or Google Books API</li>
+<li>Silently skips duplicates (same file path already in the database)</li>
 </ol>
+<p>The upload response is a JSON array of per-file results with <code>status: "imported" | "duplicate" | "error"</code>. The UI surfaces any errors as a toast.</p>
 <h2 id="reading">Reading</h2>
 <p>Click any book to open the in-browser reader, powered by <a href="https://github.com/johnfactotum/foliate-js">foliate-js</a>. Reading position (CFI + percentage) is saved automatically per-user as you read.</p>
 <h2 id="reading-status">Reading status</h2>
-<p>Right-click a book (or use the context menu) to set a status:</p>
+<p>Status is tracked per book and updated automatically:</p>
 <table>
 <thead>
 <tr>
 <th>Status</th>
-<th>Meaning</th>
+<th>Set when</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>none</code></td>
-<td>Default / unset</td>
+<td>Default on upload</td>
 </tr>
 <tr>
 <td><code>want</code></td>
-<td>Want to read</td>
+<td>Set manually via context menu</td>
 </tr>
 <tr>
 <td><code>reading</code></td>
-<td>Currently reading</td>
+<td>Set automatically when the reader is opened</td>
 </tr>
 <tr>
 <td><code>read</code></td>
-<td>Finished</td>
+<td>Set automatically when reading progress reaches ≥ 95%</td>
 </tr>
 </tbody>
 </table>
+<p>You can also set any status manually by right-clicking a book card.</p>
 <h2 id="api-endpoints">API endpoints</h2>
 <table>
 <thead>
@@ -946,16 +947,6 @@
 </tr>
 <tr>
 <td><code>GET</code></td>
-<td><code>/books/spine/:id</code></td>
-<td>JSON spine for a book</td>
-</tr>
-<tr>
-<td><code>GET</code></td>
-<td><code>/books/stream/:id/*</code></td>
-<td>Stream a resource (chapter, image) from inside an EPUB</td>
-</tr>
-<tr>
-<td><code>GET</code></td>
 <td><code>/books/file/:id</code></td>
 <td>Download the raw book file</td>
 </tr>
@@ -968,6 +959,11 @@
 <td><code>PATCH</code></td>
 <td><code>/books/:id/status</code></td>
 <td>Update reading status <code>{ status }</code></td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td><code>/books/:id</code></td>
+<td>Edit metadata <code>{ title, author, isbn }</code></td>
 </tr>
 <tr>
 <td><code>DELETE</code></td>

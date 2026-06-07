@@ -13,22 +13,26 @@
     "landing:deploy": "bun run --cwd landing deploy"
   },
   "private": true,
-  "workspaces": ["landing"],
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@gxl/epub-parser": "^2.0.4",
+    "@types/adm-zip": "^0.5.8",
+    "adm-zip": "^0.5.17",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "epub2": "^3.0.2",
     "hono": "^4.12.23",
     "livereload": "^0.10.3",
     "pdfjs-dist": "5.5.207",
-    "pug": "^3.0.4"
+    "pug": "^3.0.4",
+    "sequelize": "^6.37.8",
+    "sqlite3": "^6.0.1"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^25.9.1",
     "@types/pug": "^2.0.10",
+    "@types/sequelize": "^6.12.0",
     "bun-types": "^1.3.14",
     "puppeteer-core": "^25.1.0",
     "typescript": "^6.0.3"

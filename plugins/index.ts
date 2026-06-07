@@ -4,7 +4,7 @@ import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
 import pug from 'pug';
 import type { Context } from 'hono';
-import type { Database } from 'bun:sqlite';
+import type { Sequelize } from 'sequelize';
 import type { NavItem, AppVariables } from '../types/index';
 
 const DEV = process.env.NODE_ENV !== 'production';
@@ -13,7 +13,7 @@ const PLUGINS_DIR = __dirname;
 export type AppHono = Hono<{ Variables: AppVariables }>;
 
 export interface PluginContext {
-    db: Database;
+    db: Sequelize;
     router: AppHono;
     pluginDir: string;
     render(c: Context<{ Variables: AppVariables }>, templatePath: string, locals?: Record<string, unknown>): Response;
@@ -26,7 +26,7 @@ export interface PluginContext {
 interface PluginManifest {
     name: string;
     version?: string;
-    register(ctx: PluginContext): void;
+    register(ctx: PluginContext): void | Promise<void>;
 }
 
 class PluginRegistry {
@@ -44,7 +44,7 @@ class PluginRegistry {
         };
     }
 
-    async load(app: AppHono, db: Database): Promise<void> {
+    async load(app: AppHono, db: Sequelize): Promise<void> {
         const entries = fs.readdirSync(PLUGINS_DIR, { withFileTypes: true });
         await Promise.all(entries.map(entry => {
             if (!entry.isDirectory()) return;
@@ -55,10 +55,9 @@ class PluginRegistry {
         }));
     }
 
-    private async _loadOne(app: AppHono, db: Database, name: string): Promise<void> {
+    private async _loadOne(app: AppHono, db: Sequelize, name: string): Promise<void> {
         const pluginDir = path.join(PLUGINS_DIR, name);
-        if (name === "example")
-            return;
+        if (name === 'example') return;
         try {
             const tsPath = path.join(pluginDir, 'plugin.ts');
             const jsPath = path.join(pluginDir, 'plugin.js');
@@ -74,7 +73,6 @@ class PluginRegistry {
                     `/plugins/${name}/static/*`,
                     serveStatic({ root: publicDir, rewriteRequestPath: p => p.replace(`/plugins/${name}/static`, '') }),
                 );
-                // Also serve directly at /plugins/<name>/<asset> for legacy paths
                 app.use(
                     `/plugins/${name}/*`,
                     serveStatic({ root: publicDir, rewriteRequestPath: p => p.replace(`/plugins/${name}`, '') }),
@@ -82,7 +80,7 @@ class PluginRegistry {
             }
 
             const registry = this;
-            plugin.register({
+            await plugin.register({
                 db,
                 router,
                 pluginDir,

@@ -1,18 +1,16 @@
 import { createMiddleware } from 'hono/factory';
-import { getCookie } from 'hono/cookie';
 import bcrypt from 'bcrypt';
-import db from '../database';
-import type { AppVariables, DbUser } from '../types/index';
+import { User } from '../database';
+import type { AppVariables } from '../types/index';
 import type { Context } from 'hono';
 
 export const requireAuth = createMiddleware<{ Variables: AppVariables }>(async (c, next) => {
     const session = c.get('session');
     if (!session?.user) return c.redirect('/login');
 
-    const row = db.prepare('SELECT id, is_admin FROM users WHERE id = ?')
-        .get(session.user.id) as Pick<DbUser, 'id' | 'is_admin'> | null;
+    const row = await User.findByPk(session.user.id, { attributes: ['id', 'is_admin'] });
     if (!row) {
-        session.destroy();
+        await session.destroy();
         return c.redirect('/login');
     }
     if (!!row.is_admin !== session.user.isAdmin) {
@@ -31,19 +29,19 @@ export async function handleLogin(c: Context<{ Variables: AppVariables }>): Prom
     const username = body['username'] as string;
     const password = body['password'] as string;
 
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as DbUser | null;
+    const user = await User.findOne({ where: { username } });
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
         return renderLogin(c, 'Invalid username or password');
     }
 
     const session = c.get('session');
     session.user = { id: user.id, username: user.username, isAdmin: !!user.is_admin };
-    session.save();
+    await session.save();
     return c.redirect('/');
 }
 
-export function handleLogout(c: Context<{ Variables: AppVariables }>): Response {
-    c.get('session').destroy();
+export async function handleLogout(c: Context<{ Variables: AppVariables }>): Promise<Response> {
+    await c.get('session').destroy();
     return c.redirect('/login');
 }
 

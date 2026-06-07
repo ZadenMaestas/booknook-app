@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import pug from 'pug';
-import db from './database';
+import { sequelize, User, Book, Comic, ApiKey, ComicProgress, ReadingProgress } from './database';
 import sessionMiddleware from './middleware/session';
 import { requireAuth, requireAdmin, handleLogin, handleLogout } from './middleware/auth';
 import devMiddleware from './middleware/dev';
@@ -18,7 +18,7 @@ import { pdfFirstPageAsJpeg } from './utils/convertUtils';
 import { fetchAndCacheCover, shrinkExistingCovers } from './utils/coverUtils';
 import { getMigrationStatus, runPendingMigrations } from './utils/migrationRunner';
 import type { Context } from 'hono';
-import type { AppVariables, ApiKey, Book, Comic, DbUser, ReadingProgress, ComicProgress } from './types/index';
+import type { AppVariables } from './types/index';
 
 const DEV = false;
 const PORT = Number(process.env.PORT) || 3001;
@@ -56,11 +56,8 @@ function render(c: Context<{ Variables: AppVariables }>, template: string, local
 
 app.use('/*', serveStatic({ root: './public' }));
 app.use('/cache/*', serveStatic({ root: './' }));
-// Missing cache files (e.g. covers not yet fetched) must 404 here — before session
-// middleware — so they don't trigger a DB read + auth check on every page load.
 app.use('/cache/*', async c => c.body(null, 404));
 
-// Serve plugin public assets before session middleware for the same reason.
 for (const entry of fs.readdirSync(path.join(BASEDIR, 'plugins'), { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const publicDir = path.join(BASEDIR, 'plugins', entry.name, 'public');
@@ -71,7 +68,6 @@ for (const entry of fs.readdirSync(path.join(BASEDIR, 'plugins'), { withFileType
     );
 }
 
-// Browsers auto-request these paths; return 204 so they never reach the auth redirect.
 for (const p of ['/favicon.ico', '/icon.png', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png', '/manifest.json', '/robots.txt']) {
     app.get(p, c => c.body(null, 204));
 }
@@ -95,11 +91,10 @@ app.post('/logout', handleLogout);
 
 // ── API-key auth (machine clients) ───────────────────────────────────────────
 
-function requireApiKey(c: Context<{ Variables: AppVariables }>, next: () => Promise<Response | void>) {
+async function requireApiKey(c: Context<{ Variables: AppVariables }>, next: () => Promise<Response | void>) {
     const provided = c.req.header('X-API-Key');
     if (!provided) return c.body('Unauthorized', 401);
-    // Check DB-managed keys first, fall back to legacy env var
-    const dbMatch = db.prepare('SELECT id FROM api_keys WHERE key = ?').get(provided);
+    const dbMatch = await ApiKey.findOne({ where: { key: provided }, attributes: ['id'] });
     if (dbMatch) return next();
     const envKey = process.env.INGEST_API_KEY;
     if (envKey && provided === envKey) return next();
@@ -129,7 +124,7 @@ app.post('/comics/ingest', requireApiKey, async c => {
         }
         const filePath = path.join(COMICS_DIR, safeName);
 
-        const existing = db.prepare('SELECT id FROM comics WHERE filePath = ?').get(filePath) as { id: number } | null;
+        const existing = await Comic.findOne({ where: { filePath }, attributes: ['id'] });
         if (existing) {
             results.push({ file: file.name, status: 'duplicate' });
             return;
@@ -146,14 +141,15 @@ app.post('/comics/ingest', requireApiKey, async c => {
             const issue   = info?.issue  || parsed.issue;
             const year    = parsed.year;
 
-            const result = db.prepare(
-                'INSERT OR IGNORE INTO comics (title, series, issue, year, filePath, pageCount) VALUES (?, ?, ?, ?, ?, ?)'
-            ).run(title, series, issue, year, filePath, pages.length) as { lastInsertRowid: number | bigint };
+            const [comic, created] = await Comic.findOrCreate({
+                where: { filePath },
+                defaults: { title, series, issue, year, pageCount: pages.length },
+            });
 
-            if (result.lastInsertRowid) {
+            if (created) {
                 const cover = await extractCover(filePath);
-                if (cover) fs.writeFileSync(path.join(__dirname, 'cache/covers', `c${result.lastInsertRowid}.jpg`), cover);
-                console.log(`[ingest] imported: ${file.name} → id=${result.lastInsertRowid}`);
+                if (cover) fs.writeFileSync(path.join(__dirname, 'cache/covers', `c${comic.id}.jpg`), cover);
+                console.log(`[ingest] imported: ${file.name} → id=${comic.id}`);
                 results.push({ file: file.name, status: 'imported' });
             } else {
                 results.push({ file: file.name, status: 'duplicate' });
@@ -176,8 +172,8 @@ app.use('*', requireAuth);
 
 // ── Books ─────────────────────────────────────────────────────────────────────
 
-app.get('/', c => {
-    const books = db.prepare('SELECT * FROM books').all() as Book[];
+app.get('/', async c => {
+    const books = await Book.findAll();
     const existingFiles = books.map(b => path.basename(b.filePath));
     return render(c, 'index', { books, existingFiles });
 });
@@ -217,19 +213,19 @@ app.post('/upload', async c => {
                 isbn   = data.isbn ?? await resolveISBN(destPath, data.title, data.author);
             }
 
-            const bookPath = destPath;
-            const result = db.prepare('INSERT OR IGNORE INTO books (title, author, isbn, filePath) VALUES (?, ?, ?, ?)')
-                .run(title, author, isbn, bookPath) as { lastInsertRowid: number | bigint };
+            const [book, created] = await Book.findOrCreate({
+                where: { filePath: destPath },
+                defaults: { title, author, isbn },
+            });
 
-            if (result.lastInsertRowid) {
-                const id = Number(result.lastInsertRowid);
+            if (created) {
                 if (pdfCover) {
                     fs.mkdirSync(COVER_DIR, { recursive: true });
-                    fs.writeFileSync(path.join(COVER_DIR, `${id}.jpg`), pdfCover);
+                    fs.writeFileSync(path.join(COVER_DIR, `${book.id}.jpg`), pdfCover);
                 } else {
-                    fetchAndCacheCover(id, isbn, title, bookPath, coverId).catch(console.error);
+                    fetchAndCacheCover(book.id, isbn, title, destPath, coverId).catch(console.error);
                 }
-                plugins.emit('bookUploaded', { id, title, author, isbn, filePath: bookPath });
+                plugins.emit('bookUploaded', { id: book.id, title, author, isbn, filePath: destPath });
             }
         } catch (err) { console.error('Failed to process', file.name, err); }
     }));
@@ -237,8 +233,8 @@ app.post('/upload', async c => {
     return c.body(null, 200);
 });
 
-app.get('/books/spine/:id', c => {
-    const book = db.prepare('SELECT filePath FROM books WHERE id = ?').get(c.req.param('id')) as Pick<Book, 'filePath'> | null;
+app.get('/books/spine/:id', async c => {
+    const book = await Book.findByPk(c.req.param('id'), { attributes: ['filePath'] });
     if (!book) return c.body(null, 404);
     try {
         const { spine } = parseSpine(openZip(book.filePath));
@@ -246,9 +242,9 @@ app.get('/books/spine/:id', c => {
     } catch (e) { return c.json({ error: (e as Error).message }, 500); }
 });
 
-app.get('/books/stream/:id/*', c => {
+app.get('/books/stream/:id/*', async c => {
     const id = c.req.param('id');
-    const book = db.prepare('SELECT filePath FROM books WHERE id = ?').get(id) as Pick<Book, 'filePath'> | null;
+    const book = await Book.findByPk(id, { attributes: ['filePath'] });
     if (!book) return c.body(null, 404);
     const resource = decodeURIComponent(c.req.path.slice(`/books/stream/${id}/`.length));
     try {
@@ -265,61 +261,66 @@ app.get('/books/stream/:id/*', c => {
     } catch (e) { return c.body(null, 500); }
 });
 
-app.get('/reader/:id', c => {
-    const book = db.prepare('SELECT * FROM books WHERE id = ?').get(c.req.param('id')) as Book | null;
+app.get('/reader/:id', async c => {
+    const book = await Book.findByPk(c.req.param('id'));
     if (!book) return c.notFound();
-    const progress = db.prepare('SELECT cfi, percentage FROM reading_progress WHERE user_id = ? AND book_id = ?')
-        .get(c.get('session').user!.id, book.id) as Pick<ReadingProgress, 'cfi' | 'percentage'> | null;
+    const progress = await ReadingProgress.findOne({
+        where: { user_id: c.get('session').user!.id, book_id: book.id },
+        attributes: ['cfi', 'percentage'],
+    });
     return render(c, 'reader', { book, progress: progress || null });
 });
 
-// TODO: Allow local download via this endpoint in ui
-app.get('/books/file/:id', c => {
-    const book = db.prepare('SELECT filePath FROM books WHERE id = ?').get(c.req.param('id')) as Pick<Book, 'filePath'> | null;
+app.get('/books/file/:id', async c => {
+    const book = await Book.findByPk(c.req.param('id'), { attributes: ['filePath'] });
     if (!book) return c.body('Book not found', 404);
     return new Response(Bun.file(book.filePath));
 });
 
 app.post('/books/:id/progress', async c => {
     const { cfi, percentage } = await c.req.json() as { cfi: string; percentage: number };
-    db.prepare(`INSERT INTO reading_progress (user_id, book_id, cfi, percentage, updated_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(user_id, book_id) DO UPDATE SET cfi = excluded.cfi, percentage = excluded.percentage, updated_at = excluded.updated_at`)
-        .run(c.get('session').user!.id, c.req.param('id'), cfi, percentage);
+    await ReadingProgress.upsert({
+        user_id: c.get('session').user!.id,
+        book_id: Number(c.req.param('id')),
+        cfi,
+        percentage,
+        updated_at: new Date().toISOString(),
+    });
     return c.body(null, 204);
 });
 
 app.patch('/books/:id/status', async c => {
     const { status } = await c.req.json() as { status: string };
     if (!['none', 'want', 'reading', 'read'].includes(status)) return c.body(null, 400);
-    const result = db.prepare('UPDATE books SET status = ? WHERE id = ?')
-        .run(status, c.req.param('id')) as { changes: number };
-    return c.body(null, result.changes ? 204 : 404);
+    const [count] = await Book.update({ status }, { where: { id: c.req.param('id') } });
+    return c.body(null, count ? 204 : 404);
 });
 
 app.patch('/books/:id', async c => {
     const { title, author, isbn } = await c.req.json() as { title?: string; author?: string; isbn?: string };
-    if (title !== undefined) db.prepare('UPDATE books SET title = ? WHERE id = ?').run(title, c.req.param('id'));
-    if (author !== undefined) db.prepare('UPDATE books SET author = ? WHERE id = ?').run(author || null, c.req.param('id'));
-    if (isbn !== undefined) db.prepare('UPDATE books SET isbn = ? WHERE id = ?').run(isbn || null, c.req.param('id'));
+    const updates: Record<string, string | null> = {};
+    if (title  !== undefined) updates.title  = title;
+    if (author !== undefined) updates.author = author || null;
+    if (isbn   !== undefined) updates.isbn   = isbn   || null;
+    if (Object.keys(updates).length) await Book.update(updates, { where: { id: c.req.param('id') } });
     return c.body(null, 204);
 });
 
-app.delete('/books/:id', c => {
+app.delete('/books/:id', async c => {
     const id = c.req.param('id');
-    const book = db.prepare('SELECT filePath FROM books WHERE id = ?').get(id) as Pick<Book, 'filePath'> | null;
+    const book = await Book.findByPk(id, { attributes: ['filePath'] });
     if (!book) return c.body(null, 404);
-    db.prepare('DELETE FROM books WHERE id = ?').run(id);
-    db.prepare('DELETE FROM reading_progress WHERE book_id = ?').run(id);
+    await Book.destroy({ where: { id } });
+    await ReadingProgress.destroy({ where: { book_id: id } });
     [book.filePath, path.join(COVER_DIR, `${id}.jpg`)].forEach(f => { try { fs.unlinkSync(f); } catch {} });
-    plugins.emit('bookDeleted', { id: Number(id), book });
+    plugins.emit('bookDeleted', { id: Number(id), book: book.toJSON() });
     return c.body(null, 204);
 });
 
 // ── Comics ────────────────────────────────────────────────────────────────────
 
-app.get('/comics', c => {
-    const comics = db.prepare('SELECT * FROM comics ORDER BY series, title').all() as Comic[];
+app.get('/comics', async c => {
+    const comics = await Comic.findAll({ order: [['series', 'ASC'], ['title', 'ASC']] });
     const isSpecial = (issue: string | null) => !issue || !/^\d+$/.test(issue);
     const sortIssues = (items: Comic[]) => items.sort((a, b) => {
         const as_ = isSpecial(a.issue), bs_ = isSpecial(b.issue);
@@ -380,11 +381,13 @@ app.post('/comics/upload', async c => {
             const series  = info?.series || parsed.series;
             const issue   = info?.issue  || parsed.issue;
             const year    = parsed.year;
-            const result  = db.prepare('INSERT OR IGNORE INTO comics (title, series, issue, year, filePath, pageCount) VALUES (?, ?, ?, ?, ?, ?)')
-                .run(title, series, issue, year, filePath, pages.length) as { lastInsertRowid: number | bigint };
-            if (result.lastInsertRowid) {
+            const [comic, created] = await Comic.findOrCreate({
+                where: { filePath },
+                defaults: { title, series, issue, year, pageCount: pages.length },
+            });
+            if (created) {
                 const cover = await extractCover(filePath);
-                if (cover) fs.writeFileSync(path.join(__dirname, 'cache/covers', `c${result.lastInsertRowid}.jpg`), cover);
+                if (cover) fs.writeFileSync(path.join(__dirname, 'cache/covers', `c${comic.id}.jpg`), cover);
             }
         } catch (e) { console.error('[comics] upload failed:', (e as Error).message); }
     }));
@@ -392,17 +395,19 @@ app.post('/comics/upload', async c => {
     return c.body(null, 200);
 });
 
-app.get('/comics/read/:id', c => {
+app.get('/comics/read/:id', async c => {
     const id = c.req.param('id');
-    const comic = db.prepare('SELECT * FROM comics WHERE id = ?').get(id) as Comic | null;
+    const comic = await Comic.findByPk(id);
     if (!comic) return c.body('Not found', 404);
-    const progress = db.prepare('SELECT page FROM comic_progress WHERE user_id = ? AND comic_id = ?')
-        .get(c.get('session').user!.id, comic.id) as Pick<ComicProgress, 'page'> | null;
+    const progress = await ComicProgress.findOne({
+        where: { user_id: c.get('session').user!.id, comic_id: comic.id },
+        attributes: ['page'],
+    });
     return render(c, 'comic-reader', { comic, savedPage: progress?.page ?? 0 });
 });
 
 app.get('/comics/pages/:id', async c => {
-    const comic = db.prepare('SELECT filePath FROM comics WHERE id = ?').get(c.req.param('id')) as Pick<Comic, 'filePath'> | null;
+    const comic = await Comic.findByPk(c.req.param('id'), { attributes: ['filePath'] });
     if (!comic) return c.body(null, 404);
     try { return c.json(await getPages(comic.filePath)); }
     catch (e) { return c.json({ error: (e as Error).message }, 500); }
@@ -410,21 +415,11 @@ app.get('/comics/pages/:id', async c => {
 
 app.get('/comics/page/:id/*', async c => {
     const id = c.req.param('id');
-
-    const comic = db.prepare(
-        'SELECT filePath FROM comics WHERE id = ?'
-    ).get(id) as Pick<Comic, 'filePath'> | null;
-
+    const comic = await Comic.findByPk(id, { attributes: ['filePath'] });
     if (!comic) return c.body(null, 404);
-
-    const entry = decodeURIComponent(
-        c.req.path.slice(`/comics/page/${id}/`.length)
-    );
-
+    const entry = decodeURIComponent(c.req.path.slice(`/comics/page/${id}/`.length));
     const page = await getPage(comic.filePath, entry);
-
     if (!page) return c.body(null, 404);
-
     return new Response(page.data, {
         headers: {
             'Content-Type': page.mime,
@@ -435,47 +430,52 @@ app.get('/comics/page/:id/*', async c => {
 
 app.post('/comics/:id/progress', async c => {
     const { page } = await c.req.json() as { page: number };
-    db.prepare(`INSERT INTO comic_progress (user_id, comic_id, page) VALUES (?, ?, ?)
-        ON CONFLICT(user_id, comic_id) DO UPDATE SET page = excluded.page`)
-        .run(c.get('session').user!.id, c.req.param('id'), page);
+    await ComicProgress.upsert({
+        user_id: c.get('session').user!.id,
+        comic_id: Number(c.req.param('id')),
+        page,
+    });
     return c.body(null, 204);
 });
 
 app.patch('/comics/:id/status', async c => {
     const { status } = await c.req.json() as { status: string };
     if (!['none','want','reading','read'].includes(status)) return c.body(null, 400);
-    db.prepare('UPDATE comics SET status = ? WHERE id = ?').run(status, c.req.param('id'));
+    await Comic.update({ status }, { where: { id: c.req.param('id') } });
     return c.body(null, 204);
 });
 
 app.patch('/comics/bulk', async c => {
     const { ids, updates } = await c.req.json() as { ids: number[]; updates: { series?: string | null; year?: number | null } };
     if (!Array.isArray(ids) || !ids.length) return c.body(null, 400);
-    const stmt = db.transaction(() => {
+    await sequelize.transaction(async t => {
         for (const id of ids) {
-            if ('series' in updates) db.prepare('UPDATE comics SET series = ? WHERE id = ?').run(updates.series ?? null, id);
-            if ('year'   in updates) db.prepare('UPDATE comics SET year   = ? WHERE id = ?').run(updates.year   ?? null, id);
+            const fields: Record<string, string | number | null> = {};
+            if ('series' in updates) fields.series = updates.series ?? null;
+            if ('year'   in updates) fields.year   = updates.year   ?? null;
+            if (Object.keys(fields).length) await Comic.update(fields, { where: { id }, transaction: t });
         }
     });
-    stmt();
     return c.body(null, 204);
 });
 
 app.patch('/comics/:id', async c => {
     const { title, series, issue, year } = await c.req.json() as { title?: string; series?: string; issue?: string; year?: string };
-    if (title !== undefined) db.prepare('UPDATE comics SET title = ? WHERE id = ?').run(title, c.req.param('id'));
-    if (series !== undefined) db.prepare('UPDATE comics SET series = ? WHERE id = ?').run(series || null, c.req.param('id'));
-    if (issue !== undefined) db.prepare('UPDATE comics SET issue = ? WHERE id = ?').run(issue || null, c.req.param('id'));
-    if (year !== undefined) db.prepare('UPDATE comics SET year = ? WHERE id = ?').run(year ? parseInt(year, 10) : null, c.req.param('id'));
+    const fields: Record<string, string | number | null> = {};
+    if (title  !== undefined) fields.title  = title;
+    if (series !== undefined) fields.series = series || null;
+    if (issue  !== undefined) fields.issue  = issue  || null;
+    if (year   !== undefined) fields.year   = year ? parseInt(year, 10) : null;
+    if (Object.keys(fields).length) await Comic.update(fields, { where: { id: c.req.param('id') } });
     return c.body(null, 204);
 });
 
-app.delete('/comics/:id', c => {
+app.delete('/comics/:id', async c => {
     const id = c.req.param('id');
-    const comic = db.prepare('SELECT filePath FROM comics WHERE id = ?').get(id) as Pick<Comic, 'filePath'> | null;
+    const comic = await Comic.findByPk(id, { attributes: ['filePath'] });
     if (!comic) return c.body(null, 404);
-    db.prepare('DELETE FROM comics WHERE id = ?').run(id);
-    db.prepare('DELETE FROM comic_progress WHERE comic_id = ?').run(id);
+    await Comic.destroy({ where: { id } });
+    await ComicProgress.destroy({ where: { comic_id: id } });
     [comic.filePath, path.join(__dirname, 'cache/covers', `c${id}.jpg`)].forEach(f => { try { fs.unlinkSync(f); } catch {} });
     return c.body(null, 204);
 });
@@ -483,15 +483,15 @@ app.delete('/comics/:id', c => {
 // ── Library CRUD ──────────────────────────────────────────────────────────────
 
 app.get('/library', requireAdmin, async c => {
-    const books  = db.prepare('SELECT * FROM books ORDER BY title').all() as Book[];
-    const comics = db.prepare('SELECT * FROM comics ORDER BY series, CAST(issue AS INTEGER), title').all() as Comic[];
+    const books  = await Book.findAll({ order: [['title', 'ASC']] });
+    const comics = await Comic.findAll({ order: [['series', 'ASC'], ['issue', 'ASC'], ['title', 'ASC']] });
     return render(c, 'library', { books, comics });
 });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
-app.get('/admin/users', requireAdmin, c => {
-    const users = db.prepare('SELECT id, username, created_at FROM users').all() as Pick<DbUser, 'id' | 'username' | 'created_at'>[];
+app.get('/admin/users', requireAdmin, async c => {
+    const users = await User.findAll({ attributes: ['id', 'username', 'created_at'] });
     return render(c, 'admin-users', { users });
 });
 
@@ -502,26 +502,26 @@ app.post('/admin/users', requireAdmin, async c => {
     if (!username || !password) return c.redirect('/admin/users?error=missing');
     const hash = await bcrypt.hash(password, 10);
     try {
-        db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hash);
+        await User.create({ username, password_hash: hash });
     } catch { return c.redirect('/settings?error=exists'); }
     return c.redirect('/settings');
 });
 
-app.delete('/admin/users/:id', requireAdmin, c => {
+app.delete('/admin/users/:id', requireAdmin, async c => {
     const id = c.req.param('id');
     if (Number(id) === c.get('session').user!.id) return c.body(null, 400);
-    db.prepare('DELETE FROM users WHERE id = ?').run(id);
-    db.prepare('DELETE FROM reading_progress WHERE user_id = ?').run(id);
+    await User.destroy({ where: { id } });
+    await ReadingProgress.destroy({ where: { user_id: id } });
     return c.body(null, 204);
 });
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
-app.get('/settings', c => {
+app.get('/settings', async c => {
     const isAdmin = c.get('session').user!.isAdmin;
-    const users = isAdmin ? db.prepare('SELECT id, username, created_at FROM users').all() : null;
-    const apiKeys = isAdmin ? db.prepare('SELECT id, name, key, created_at FROM api_keys ORDER BY created_at DESC').all() as ApiKey[] : null;
-    const migrations = isAdmin ? getMigrationStatus() : null;
+    const users      = isAdmin ? await User.findAll({ attributes: ['id', 'username', 'created_at'] }) : null;
+    const apiKeys    = isAdmin ? await ApiKey.findAll({ order: [['created_at', 'DESC']] }) : null;
+    const migrations = isAdmin ? await getMigrationStatus() : null;
     return render(c, 'settings', { saved: false, users, apiKeys, migrations, userError: c.req.query('error') || null });
 });
 
@@ -531,19 +531,19 @@ app.post('/settings/password', async c => {
     const newPass  = body['next'] as string;
     const confirm  = body['confirm'] as string;
     if (newPass !== confirm) return render(c, 'settings', { error: 'Passwords do not match', saved: false });
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(c.get('session').user!.id) as DbUser;
+    const user = await User.findByPk(c.get('session').user!.id);
+    if (!user) return render(c, 'settings', { error: 'User not found', saved: false });
     if (!(await bcrypt.compare(current, user.password_hash)))
         return render(c, 'settings', { error: 'Current password is incorrect', saved: false });
-    await bcrypt.hash(newPass, 10).then(hash =>
-        db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, user.id)
-    );
+    const hash = await bcrypt.hash(newPass, 10);
+    await User.update({ password_hash: hash }, { where: { id: user.id } });
     return render(c, 'settings', { saved: true });
 });
 
 // ── DB migrations ─────────────────────────────────────────────────────────────
 
-app.post('/admin/migrations/run', requireAdmin, c => {
-    const results = runPendingMigrations();
+app.post('/admin/migrations/run', requireAdmin, async c => {
+    const results = await runPendingMigrations();
     return c.json(results);
 });
 
@@ -554,21 +554,18 @@ app.post('/admin/api-keys', requireAdmin, async c => {
     const name = (body['name'] as string | undefined)?.trim();
     if (!name) return c.json({ error: 'Name is required' }, 400);
     const key = 'bn_' + crypto.randomBytes(24).toString('hex');
-    const result = db.prepare('INSERT INTO api_keys (name, key) VALUES (?, ?)')
-        .run(name, key) as { lastInsertRowid: number | bigint };
-    const row = db.prepare('SELECT id, name, key, created_at FROM api_keys WHERE id = ?')
-        .get(result.lastInsertRowid) as ApiKey;
-    return c.json(row, 201);
+    const apiKey = await ApiKey.create({ name, key });
+    return c.json(apiKey.toJSON(), 201);
 });
 
-app.delete('/admin/api-keys/:id', requireAdmin, c => {
-    db.prepare('DELETE FROM api_keys WHERE id = ?').run(c.req.param('id'));
+app.delete('/admin/api-keys/:id', requireAdmin, async c => {
+    await ApiKey.destroy({ where: { id: c.req.param('id') } });
     return c.body(null, 204);
 });
 
 // ── Plugins & start ───────────────────────────────────────────────────────────
 
-await plugins.load(app, db);
+await plugins.load(app, sequelize);
 
 shrinkExistingCovers().catch(e => console.error('[covers]', e));
 

@@ -13,13 +13,13 @@ export default {
     name: 'example',
     version: '1.0.0',
 
-    register({ db, router, pluginDir, render, addNavItem, addStylesheet, addScript, on }: PluginContext) {
-        db.prepare(`CREATE TABLE IF NOT EXISTS example_notes (
+    async register({ db, router, pluginDir, render, addNavItem, addStylesheet, addScript, on }: PluginContext) {
+        await db.query(`CREATE TABLE IF NOT EXISTS example_notes (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             book_id    INTEGER NOT NULL,
             note       TEXT NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )`).run();
+        )`);
 
         addNavItem({
             label: 'Notes',
@@ -30,13 +30,13 @@ export default {
         addStylesheet('/plugins/example/styles.css');
         addScript('/plugins/example/client.js');
 
-        router.get('/', c => {
-            const notes = db.prepare(`
+        router.get('/', async c => {
+            const [notes] = await db.query(`
                 SELECT n.*, b.title as bookTitle
                 FROM example_notes n
                 LEFT JOIN books b ON b.id = n.book_id
                 ORDER BY n.created_at DESC
-            `).all() as Note[];
+            `) as [Note[], unknown];
             return render(c, path.join(pluginDir, 'views/index.pug'), { notes });
         });
 
@@ -45,19 +45,20 @@ export default {
             const book_id = Number(body['book_id']);
             const note = (body['note'] as string)?.trim();
             if (!book_id || !note) return c.json({ error: 'book_id and note required' }, 400);
-            const result = db.prepare(
-                'INSERT INTO example_notes (book_id, note) VALUES (?, ?)'
-            ).run(book_id, note) as { lastInsertRowid: number | bigint };
-            return c.json({ id: Number(result.lastInsertRowid) }, 201);
+            const [, meta] = await db.query(
+                'INSERT INTO example_notes (book_id, note) VALUES (?, ?)',
+                { replacements: [book_id, note] }
+            ) as [unknown, { lastID?: number }];
+            return c.json({ id: meta?.lastID ?? null }, 201);
         });
 
-        router.delete('/notes/:id', c => {
-            db.prepare('DELETE FROM example_notes WHERE id = ?').run(c.req.param('id'));
+        router.delete('/notes/:id', async c => {
+            await db.query('DELETE FROM example_notes WHERE id = ?', { replacements: [c.req.param('id')] });
             return c.body(null, 204);
         });
 
         on('bookDeleted', ({ id }: { id: number }) => {
-            db.prepare('DELETE FROM example_notes WHERE book_id = ?').run(id);
+            db.query('DELETE FROM example_notes WHERE book_id = ?', { replacements: [id] }).catch(console.error);
         });
     },
 };

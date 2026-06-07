@@ -8,8 +8,8 @@ export interface SessionUser {
 
 export interface Session {
     user?: SessionUser;
-    save(maxAge?: number): void;
-    destroy(): void;
+    save(maxAge?: number): Promise<void>;
+    destroy(): Promise<void>;
 }
 
 export type AppVariables = {

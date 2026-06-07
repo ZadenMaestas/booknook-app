@@ -26,35 +26,35 @@ export default {
     name: 'AI Integration',
     version: '1.0.0',
 
-    register({ db, router, pluginDir, render, addNavItem, addStylesheet, addScript, on }: PluginContext) {
-        db.prepare(`CREATE TABLE IF NOT EXISTS ai_integration (
+    async register({ db, router, pluginDir, render, addNavItem, addStylesheet, addScript, on }: PluginContext) {
+        await db.query(`CREATE TABLE IF NOT EXISTS ai_integration (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             book_id    INTEGER NOT NULL,
             note       TEXT    NOT NULL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )`).run();
+        )`);
 
         addNavItem({ label: 'AI', href: '/plugins/ai-integration', icon });
         addStylesheet('/plugins/ai-integration/styles.css');
         addScript('/plugins/ai-integration/client.js');
 
-        router.get('/', c => {
-            const recs = db.prepare(`
+        router.get('/', async c => {
+            const [recs] = await db.query(`
                 SELECT r.*, b.title as bookTitle, b.author as bookAuthor
                 FROM ai_integration r
                 LEFT JOIN books b ON b.id = r.book_id
                 ORDER BY r.created_at DESC
                 LIMIT 50
-            `).all() as StoredRec[];
+            `) as [StoredRec[], unknown];
             const apiConfigured = !!process.env.GEMINI_API_KEY;
             return render(c, path.join(pluginDir, 'views/index.pug'), { recs, apiConfigured });
         });
 
-        router.get('/api/book/:id', c => {
+        router.get('/api/book/:id', async c => {
             const bookId = c.req.param('id');
-            const book = db.prepare('SELECT * FROM books WHERE id = ?').get(bookId) as Book | null;
-            if (!book) return c.json({ error: 'Not found' }, 404);
-            return c.json(book);
+            const [rows] = await db.query('SELECT * FROM books WHERE id = ?', { replacements: [bookId] }) as [Book[], unknown];
+            if (!rows.length) return c.json({ error: 'Not found' }, 404);
+            return c.json(rows[0]);
         });
 
         router.post('/api/recommendations/:id', async c => {
@@ -62,8 +62,9 @@ export default {
             if (!apiKey) return c.json({ error: 'GEMINI_API_KEY not set in .env' }, 503);
 
             const bookId = c.req.param('id');
-            const book = db.prepare('SELECT * FROM books WHERE id = ?').get(bookId) as Book | null;
-            if (!book) return c.json({ error: 'Book not found' }, 404);
+            const [rows] = await db.query('SELECT * FROM books WHERE id = ?', { replacements: [bookId] }) as [Book[], unknown];
+            if (!rows.length) return c.json({ error: 'Book not found' }, 404);
+            const book = rows[0];
 
             const genAI = new GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
@@ -100,10 +101,10 @@ Reply ONLY with a valid JSON array, no markdown, no explanation:
 
             const recommendations: Recommendation[] = JSON.parse(jsonMatch[0]);
 
-            db.prepare('DELETE FROM ai_integration WHERE book_id = ?').run(bookId);
-            db.prepare('INSERT INTO ai_integration (book_id, note) VALUES (?, ?)').run(
-                bookId, JSON.stringify(recommendations)
-            );
+            await db.query('DELETE FROM ai_integration WHERE book_id = ?', { replacements: [bookId] });
+            await db.query('INSERT INTO ai_integration (book_id, note) VALUES (?, ?)', {
+                replacements: [bookId, JSON.stringify(recommendations)],
+            });
 
             return c.json({
                 book: { title: book.title, author: book.author },
@@ -112,7 +113,7 @@ Reply ONLY with a valid JSON array, no markdown, no explanation:
         });
 
         on('bookDeleted', ({ id }: { id: number }) => {
-            db.prepare('DELETE FROM ai_integration WHERE book_id = ?').run(id);
+            db.query('DELETE FROM ai_integration WHERE book_id = ?', { replacements: [id] }).catch(console.error);
         });
     },
 };

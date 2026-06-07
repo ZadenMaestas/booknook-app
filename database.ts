@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Database } from 'bun:sqlite';
+import { Sequelize, DataTypes, Model } from 'sequelize';
 import bcrypt from 'bcrypt';
 import path from 'path';
 
@@ -7,82 +7,139 @@ const dbPath = process.env.DATA_DIR
     ? path.join(process.env.DATA_DIR, 'booknook.db')
     : 'booknook.db';
 
-const db = new Database(dbPath, { create: true });
+export const sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: dbPath,
+    logging: false,
+});
 
-// WAL mode: readers don't block writers and vice-versa, better for concurrent requests
-db.exec('PRAGMA journal_mode=WAL');
-db.exec('PRAGMA synchronous=NORMAL');   // safe with WAL, much faster than FULL
-db.exec('PRAGMA busy_timeout=5000');    // wait up to 5s on lock instead of erroring
-db.exec('PRAGMA cache_size=-16000');    // 16 MB page cache
+// ── Models ────────────────────────────────────────────────────────────────────
 
-db.prepare(`CREATE TABLE IF NOT EXISTS users (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  username      TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  is_admin      INTEGER NOT NULL DEFAULT 0,
-  created_at    TEXT DEFAULT CURRENT_TIMESTAMP
-)`).run();
+export class User extends Model {
+    declare id: number;
+    declare username: string;
+    declare password_hash: string;
+    declare is_admin: number;
+    declare created_at: string;
+}
+User.init({
+    id:            { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    username:      { type: DataTypes.TEXT, allowNull: false, unique: true },
+    password_hash: { type: DataTypes.TEXT, allowNull: false },
+    is_admin:      { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    created_at:    { type: DataTypes.TEXT },
+}, { sequelize, tableName: 'users', timestamps: false });
 
-db.prepare(`CREATE TABLE IF NOT EXISTS books (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  title      TEXT NOT NULL,
-  author     TEXT,
-  isbn       TEXT UNIQUE,
-  filePath   TEXT UNIQUE,
-  status     TEXT DEFAULT 'none',
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-)`).run();
+export class Session extends Model {
+    declare id: string;
+    declare data: string;
+    declare expires_at: number;
+}
+Session.init({
+    id:         { type: DataTypes.TEXT, primaryKey: true },
+    data:       { type: DataTypes.TEXT, allowNull: false },
+    expires_at: { type: DataTypes.INTEGER, allowNull: false },
+}, { sequelize, tableName: 'sessions', timestamps: false });
 
-db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
-  id         TEXT PRIMARY KEY,
-  data       TEXT NOT NULL,
-  expires_at INTEGER NOT NULL
-)`).run();
+export class Book extends Model {
+    declare id: number;
+    declare title: string;
+    declare author: string | null;
+    declare isbn: string | null;
+    declare filePath: string;
+    declare status: string;
+    declare created_at: string;
+}
+Book.init({
+    id:         { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    title:      { type: DataTypes.TEXT, allowNull: false },
+    author:     { type: DataTypes.TEXT },
+    isbn:       { type: DataTypes.TEXT, unique: true },
+    filePath:   { type: DataTypes.TEXT, unique: true },
+    status:     { type: DataTypes.TEXT, defaultValue: 'none' },
+    created_at: { type: DataTypes.TEXT },
+}, { sequelize, tableName: 'books', timestamps: false });
 
-db.prepare(`CREATE TABLE IF NOT EXISTS comics (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  title      TEXT NOT NULL,
-  series     TEXT,
-  issue      TEXT,
-  year       INTEGER,
-  filePath   TEXT UNIQUE,
-  pageCount  INTEGER DEFAULT 0,
-  status     TEXT DEFAULT 'none',
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-)`).run();
+export class Comic extends Model {
+    declare id: number;
+    declare title: string;
+    declare series: string | null;
+    declare issue: string | null;
+    declare year: number | null;
+    declare filePath: string;
+    declare pageCount: number;
+    declare status: string;
+    declare created_at: string;
+}
+Comic.init({
+    id:         { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    title:      { type: DataTypes.TEXT, allowNull: false },
+    series:     { type: DataTypes.TEXT },
+    issue:      { type: DataTypes.TEXT },
+    year:       { type: DataTypes.INTEGER },
+    filePath:   { type: DataTypes.TEXT, unique: true },
+    pageCount:  { type: DataTypes.INTEGER, defaultValue: 0 },
+    status:     { type: DataTypes.TEXT, defaultValue: 'none' },
+    created_at: { type: DataTypes.TEXT },
+}, { sequelize, tableName: 'comics', timestamps: false });
 
-db.prepare(`CREATE TABLE IF NOT EXISTS api_keys (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  name       TEXT NOT NULL,
-  key        TEXT NOT NULL UNIQUE,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-)`).run();
+export class ApiKey extends Model {
+    declare id: number;
+    declare name: string;
+    declare key: string;
+    declare created_at: string;
+}
+ApiKey.init({
+    id:         { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    name:       { type: DataTypes.TEXT, allowNull: false },
+    key:        { type: DataTypes.TEXT, allowNull: false, unique: true },
+    created_at: { type: DataTypes.TEXT },
+}, { sequelize, tableName: 'api_keys', timestamps: false });
 
-db.prepare(`CREATE TABLE IF NOT EXISTS comic_progress (
-  user_id    INTEGER NOT NULL,
-  comic_id   INTEGER NOT NULL,
-  page       INTEGER DEFAULT 0,
-  PRIMARY KEY (user_id, comic_id)
-)`).run();
+export class ComicProgress extends Model {
+    declare user_id: number;
+    declare comic_id: number;
+    declare page: number;
+}
+ComicProgress.init({
+    user_id:  { type: DataTypes.INTEGER, primaryKey: true },
+    comic_id: { type: DataTypes.INTEGER, primaryKey: true },
+    page:     { type: DataTypes.INTEGER, defaultValue: 0 },
+}, { sequelize, tableName: 'comic_progress', timestamps: false });
 
-db.prepare(`CREATE TABLE IF NOT EXISTS reading_progress (
-  user_id    INTEGER NOT NULL,
-  book_id    INTEGER NOT NULL,
-  cfi        TEXT,
-  percentage REAL DEFAULT 0,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (user_id, book_id)
-)`).run();
+export class ReadingProgress extends Model {
+    declare user_id: number;
+    declare book_id: number;
+    declare cfi: string | null;
+    declare percentage: number;
+    declare updated_at: string;
+}
+ReadingProgress.init({
+    user_id:    { type: DataTypes.INTEGER, primaryKey: true },
+    book_id:    { type: DataTypes.INTEGER, primaryKey: true },
+    cfi:        { type: DataTypes.TEXT },
+    percentage: { type: DataTypes.REAL, defaultValue: 0 },
+    updated_at: { type: DataTypes.TEXT },
+}, { sequelize, tableName: 'reading_progress', timestamps: false });
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+await sequelize.query('PRAGMA journal_mode=WAL');
+await sequelize.query('PRAGMA synchronous=NORMAL');
+await sequelize.query('PRAGMA busy_timeout=5000');
+await sequelize.query('PRAGMA cache_size=-16000');
+
+await sequelize.sync();
 
 const adminUser = process.env.ADMIN_USERNAME;
 const adminPass = process.env.ADMIN_PASSWORD;
 if (adminUser && adminPass) {
-    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(adminUser);
+    const existing = await User.findOne({ where: { username: adminUser } });
     if (!existing) {
         const hash = bcrypt.hashSync(adminPass, 10);
-        db.prepare('INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)').run(adminUser, hash);
+        await User.create({ username: adminUser, password_hash: hash, is_admin: 1 });
         console.log(`Admin user "${adminUser}" created`);
     }
 }
 
-export default db;
+export default sequelize;

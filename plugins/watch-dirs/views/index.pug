@@ -1,0 +1,120 @@
+extends /views/layout.pug
+
+block title
+    title Watch Directories — BookNook
+
+block content
+    style.
+        .wd-wrap { padding: 2rem 2.5rem; max-width: 900px; }
+        .wd-heading { font-family: 'Newsreader', serif; font-weight: 700; font-size: 2rem; margin: 0 0 2rem; }
+        .alert { padding: .75rem 1rem; border-radius: 4px; margin-bottom: 1.5rem; font-size: .9rem; }
+        .alert--error { background: rgba(139,58,47,.1); border: 1px solid rgba(139,58,47,.3); color: #8b3a2f; }
+        .wd-form { display: flex; gap: .75rem; align-items: flex-end; flex-wrap: wrap; padding: 1.25rem; background: var(--bg-alt); border-radius: 6px; margin-bottom: 2.5rem; }
+        .wd-form-field { display: flex; flex-direction: column; gap: .35rem; }
+        .wd-form-field label { font-family: 'JetBrains Mono', monospace; font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); }
+        .wd-form input, .wd-form select { font-family: 'Space Grotesk', sans-serif; font-size: .9rem; padding: .5rem .7rem; border: 1.5px solid rgba(196,122,59,.35); border-radius: 4px; background: var(--bg); color: var(--text); min-width: 280px; }
+        .wd-form input:focus, .wd-form select:focus { outline: none; border-color: var(--amber); }
+        .section-label { font-family: 'JetBrains Mono', monospace; font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin: 0 0 .75rem; }
+        .wd-table { width: 100%; border-collapse: collapse; margin-bottom: 2.5rem; }
+        .wd-table th { text-align: left; font-family: 'JetBrains Mono', monospace; font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); padding: .4rem .75rem; border-bottom: 1px solid rgba(196,122,59,.2); }
+        .wd-table td { padding: .65rem .75rem; border-bottom: 1px solid rgba(196,122,59,.08); vertical-align: middle; font-size: .88rem; }
+        .wd-table tr:last-child td { border-bottom: none; }
+        .path-mono { font-family: 'JetBrains Mono', monospace; font-size: .78rem; word-break: break-all; }
+        .badge { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: .68rem; font-weight: 500; padding: .18rem .42rem; border-radius: 3px; text-transform: uppercase; letter-spacing: .05em; }
+        .badge--comics { background: rgba(93,107,74,.18); color: #5d6b4a; }
+        .badge--books  { background: rgba(196,122,59,.15); color: var(--amber); }
+        .badge--on  { background: rgba(93,107,74,.18); color: #5d6b4a; }
+        .badge--off { background: rgba(26,29,41,.07); color: var(--text-muted); }
+        [data-theme="dark"] .badge--off { background: rgba(245,239,228,.07); }
+        .row-actions { display: flex; gap: .4rem; align-items: center; }
+        .row-actions form { display: contents; }
+        .btn-xs { font-family: 'Space Grotesk', sans-serif; font-size: .78rem; font-weight: 600; padding: .28rem .62rem; border-radius: 4px; border: 1.5px solid; cursor: pointer; background: transparent; transition: background 140ms, color 140ms; line-height: 1.3; }
+        .btn-xs--scan   { border-color: rgba(196,122,59,.45); color: var(--amber); }
+        .btn-xs--scan:hover   { background: var(--amber); color: var(--cream); }
+        .btn-xs--enable { border-color: rgba(93,107,74,.5); color: #5d6b4a; }
+        .btn-xs--enable:hover { background: #5d6b4a; color: var(--cream); }
+        .btn-xs--disable { border-color: rgba(196,122,59,.3); color: var(--text-muted); }
+        .btn-xs--disable:hover { background: rgba(196,122,59,.15); }
+        .btn-xs--delete { border-color: rgba(139,58,47,.35); color: #8b3a2f; }
+        .btn-xs--delete:hover { background: #8b3a2f; color: var(--cream); }
+        .log--imported { color: #5d6b4a; }
+        .log--updated  { color: var(--amber); }
+        .log--error    { color: #8b3a2f; }
+        .log--dup      { color: var(--text-muted); }
+        .log-err-detail { font-family: 'JetBrains Mono', monospace; font-size: .7rem; color: #8b3a2f; opacity: .75; display: block; margin-top: .15rem; }
+        .empty-note { font-size: .88rem; color: var(--text-muted); font-style: italic; margin: 0 0 2rem; }
+
+    .wd-wrap
+        h1.wd-heading Watch Directories
+
+        if error
+            .alert.alert--error
+                - const errMsg = error === 'notfound' ? 'Directory does not exist on this server.' : error === 'exists' ? 'That path is already being watched.' : 'Invalid input — check path and type.'
+                = errMsg
+
+        form.wd-form(action='/plugins/watch-dirs/add' method='POST')
+            .wd-form-field
+                label Path
+                input(type='text' name='path' placeholder='/home/user/Downloads/comics' required)
+            .wd-form-field
+                label Type
+                select(name='type')
+                    option(value='comics') Comics
+                    option(value='books') Books
+            button.btn(type='submit' style='align-self: flex-end') Add Directory
+
+        p.section-label Watched Directories
+
+        if dirs.length
+            table.wd-table
+                thead
+                    tr
+                        th Path
+                        th Type
+                        th Status
+                        th Actions
+                tbody
+                    each dir in dirs
+                        - const active = activeIds.includes(dir.id)
+                        tr
+                            td.path-mono= dir.path
+                            td
+                                span(class='badge badge--' + dir.type)= dir.type
+                            td
+                                span(class='badge badge--' + (active ? 'on' : 'off'))= active ? 'watching' : 'stopped'
+                            td
+                                .row-actions
+                                    form(action='/plugins/watch-dirs/scan/' + dir.id method='POST')
+                                        button.btn-xs.btn-xs--scan(type='submit' title='Scan directory now') Scan
+                                    form(action='/plugins/watch-dirs/toggle/' + dir.id method='POST')
+                                        if active
+                                            button.btn-xs.btn-xs--disable(type='submit') Disable
+                                        else
+                                            button.btn-xs.btn-xs--enable(type='submit') Enable
+                                    form(action='/plugins/watch-dirs/delete/' + dir.id method='POST')
+                                        button.btn-xs.btn-xs--delete(type='submit') Delete
+        else
+            p.empty-note No directories configured yet. Add one above.
+
+        p.section-label(style='margin-top: 2rem') Recent Imports
+
+        if logs.length
+            table.wd-table
+                thead
+                    tr
+                        th File
+                        th Directory
+                        th Result
+                        th Time
+                tbody
+                    each entry in logs
+                        tr
+                            td.path-mono(style='max-width: 240px')= entry.filename
+                            td.path-mono(style='max-width: 220px; color: var(--text-muted)')= entry.dir_path || '(removed)'
+                            td
+                                span(class='badge badge--' + (entry.status === 'imported' ? 'on' : 'off'))= entry.status
+                                if entry.error
+                                    span.log-err-detail= entry.error
+                            td(style='font-size: .78rem; color: var(--text-muted); white-space: nowrap')= entry.imported_at
+        else
+            p.empty-note No imports logged yet.

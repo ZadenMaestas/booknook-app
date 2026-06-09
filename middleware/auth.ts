@@ -8,14 +8,14 @@ export const requireAuth = createMiddleware<{ Variables: AppVariables }>(async (
     const session = c.get('session');
     if (!session?.user) return c.redirect('/login');
 
-    const row = await User.findByPk(session.user.id, { attributes: ['id', 'is_admin'] });
+    const row = await User.findByPk(session.user.id, { attributes: ['id', 'is_admin', 'permissions'] });
     if (!row) {
         await session.destroy();
         return c.redirect('/login');
     }
-    if (!!row.is_admin !== session.user.isAdmin) {
-        session.user.isAdmin = !!row.is_admin;
-    }
+    // Sync live DB values so admin/permission changes take effect on the next request
+    session.user.isAdmin = !!row.is_admin;
+    session.user.permissions = row.permissions ? (JSON.parse(row.permissions) as string[]) : null;
     await next();
 });
 
@@ -23,6 +23,16 @@ export const requireAdmin = createMiddleware<{ Variables: AppVariables }>(async 
     if (!c.get('session')?.user?.isAdmin) return c.body('Forbidden', 403);
     await next();
 });
+
+export function requirePermission(section: string) {
+    return createMiddleware<{ Variables: AppVariables }>(async (c, next) => {
+        const user = c.get('session')?.user;
+        if (!user) return c.redirect('/login');
+        if (user.isAdmin) return next();
+        if ((user.permissions ?? []).includes(section)) return c.redirect('/settings');
+        return next();
+    });
+}
 
 export async function handleLogin(c: Context<{ Variables: AppVariables }>): Promise<Response> {
     const body = await c.req.parseBody();
@@ -35,7 +45,10 @@ export async function handleLogin(c: Context<{ Variables: AppVariables }>): Prom
     }
 
     const session = c.get('session');
-    session.user = { id: user.id, username: user.username, isAdmin: !!user.is_admin };
+    session.user = {
+        id: user.id, username: user.username, isAdmin: !!user.is_admin,
+        permissions: user.permissions ? (JSON.parse(user.permissions) as string[]) : null,
+    };
     await session.save();
     return c.redirect('/');
 }

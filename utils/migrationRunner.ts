@@ -39,6 +39,24 @@ const MIGRATIONS: Migration[] = [
             return (rows[0] as { n: number }).n > 0;
         },
     },
+    {
+        id: '003_user_permissions',
+        name: 'Add permissions column to users',
+        up: 'ALTER TABLE users ADD COLUMN permissions TEXT DEFAULT NULL',
+        detect: async () => {
+            const [rows] = await sequelize.query("SELECT COUNT(*) as n FROM pragma_table_info('users') WHERE name='permissions'");
+            return (rows[0] as { n: number }).n > 0;
+        },
+    },
+    {
+        id: '004_reading_progress_page',
+        name: 'Add page column to reading_progress',
+        up: 'ALTER TABLE reading_progress ADD COLUMN page INTEGER NOT NULL DEFAULT 0',
+        detect: async () => {
+            const [rows] = await sequelize.query("SELECT COUNT(*) as n FROM pragma_table_info('reading_progress') WHERE name='page'");
+            return (rows[0] as { n: number }).n > 0;
+        },
+    },
 ];
 
 await sequelize.query(`CREATE TABLE IF NOT EXISTS schema_migrations (

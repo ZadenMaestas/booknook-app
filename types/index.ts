@@ -4,6 +4,7 @@ export interface SessionUser {
     id: number;
     username: string;
     isAdmin: boolean;
+    permissions: string[] | null; // null = full access; array = excluded sections ('books'|'comics'|'plugins')
 }
 
 export interface Session {
@@ -104,3 +105,5 @@ export interface SpineResult {
     opfDir: string;
     spine: string[];
 }
+
+export type UploadResult = { file: string; status: 'imported' | 'duplicate' | 'error'; error?: string };

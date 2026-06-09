@@ -46,6 +46,28 @@ export async function extractCover(filePath: string): Promise<Buffer | null> {
     return pages.length ? (await getPage(filePath, pages[0]))?.data ?? null : null;
 }
 
+export function parseComicFilename(raw: string): { series: string | null; year: number | null; issue: string | null } {
+    const withYear = raw.match(/^(.+?)\s+\((\d{4})\)\s+#?0*(\d+)/);
+    if (withYear) return {
+        series: withYear[1].trim(),
+        year:   parseInt(withYear[2], 10),
+        issue:  parseInt(withYear[3], 10).toString(),
+    };
+    const issueBeforeYear = raw.match(/^(.+?)\s+0*(\d+)\s+\((\d{4})\)$/);
+    if (issueBeforeYear) return {
+        series: issueBeforeYear[1].trim(),
+        year:   parseInt(issueBeforeYear[3], 10),
+        issue:  parseInt(issueBeforeYear[2], 10).toString(),
+    };
+    const noYear = raw.match(/^(.+?)\s+#?0*(\d+)$/);
+    if (noYear) return {
+        series: noYear[1].trim(),
+        year:   null,
+        issue:  parseInt(noYear[2], 10).toString(),
+    };
+    return { series: null, year: null, issue: null };
+}
+
 export async function parseComicInfo(filePath: string): Promise<ComicMetadata | null> {
     try {
         const xml = (await spawn7z(['e', '-so', filePath, 'ComicInfo.xml'])).toString('utf-8');

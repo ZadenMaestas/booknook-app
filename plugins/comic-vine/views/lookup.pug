@@ -1,0 +1,192 @@
+extends /views/layout.pug
+
+block title
+    title= comic.title + ' · CV Lookup — BookNook'
+
+block content
+    style.
+        .cv-wrap { padding: 2rem 2.5rem; max-width: 920px; }
+        .cv-heading { font-family: 'Newsreader', serif; font-weight: 700; font-size: 1.8rem; margin: 0 0 .25rem; }
+        .cv-sub { font-size: .88rem; color: var(--text-muted); margin: 0 0 1.75rem; }
+        .cv-sub a { color: var(--amber); text-decoration: none; }
+        .cv-sub a:hover { text-decoration: underline; }
+        .section-label { font-family: 'JetBrains Mono', monospace; font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin: 0 0 .75rem; }
+        .search-row { display: flex; gap: .6rem; margin-bottom: 1.75rem; }
+        .search-row input { flex: 1; font-family: 'Space Grotesk', sans-serif; font-size: .95rem; padding: .55rem .75rem; border: 1.5px solid rgba(196,122,59,.35); border-radius: 4px; background: var(--bg); color: var(--text); }
+        .search-row input:focus { outline: none; border-color: var(--amber); }
+        .alert--ok { padding: .65rem 1rem; background: rgba(93,107,74,.12); border: 1px solid rgba(93,107,74,.3); color: #5d6b4a; border-radius: 4px; font-size: .88rem; margin-bottom: 1.5rem; }
+        .alert--err { padding: .65rem 1rem; background: rgba(139,58,47,.1); border: 1px solid rgba(139,58,47,.25); color: #8b3a2f; border-radius: 4px; font-size: .88rem; margin-bottom: 1.5rem; display: none; }
+        #results { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+        .cv-card { border: 1.5px solid rgba(196,122,59,.18); border-radius: 6px; overflow: hidden; background: var(--bg-alt); display: flex; flex-direction: column; }
+        .cv-card__img { width: 100%; aspect-ratio: 2/3; object-fit: cover; background: rgba(196,122,59,.05); }
+        .cv-card__img--placeholder { display: flex; align-items: center; justify-content: center; font-size: 2rem; color: rgba(196,122,59,.3); }
+        .cv-card__body { padding: .85rem .9rem 1rem; flex: 1; display: flex; flex-direction: column; gap: .3rem; }
+        .cv-card__series { font-family: 'JetBrains Mono', monospace; font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--amber); }
+        .cv-card__title { font-weight: 600; font-size: .9rem; line-height: 1.3; }
+        .cv-card__meta { font-size: .78rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+        .cv-card__desc { font-size: .8rem; color: var(--text-muted); line-height: 1.45; flex: 1; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+        .cv-card__apply { margin-top: .75rem; }
+        .cv-card__apply button { width: 100%; font-family: 'Space Grotesk', sans-serif; font-size: .82rem; font-weight: 600; padding: .45rem; border-radius: 4px; border: none; background: var(--amber); color: var(--cream); cursor: pointer; transition: background 140ms; }
+        .cv-card__apply button:hover { background: #8b3a2f; }
+        .no-key-notice { padding: 1.5rem; background: rgba(139,58,47,.08); border: 1px solid rgba(139,58,47,.2); border-radius: 6px; font-size: .9rem; }
+        .no-key-notice a { color: var(--amber); }
+        #spinner { display: none; font-size: .85rem; color: var(--text-muted); padding: .5rem 0; }
+
+    .cv-wrap
+        h1.cv-heading= comic.title
+        p.cv-sub
+            a(href='/plugins/comic-vine') ← All comics
+            if comic.series
+                |  ·
+                span= comic.series
+                if comic.issue
+                    |  #
+                    = comic.issue
+
+        if applied
+            .alert--ok Metadata applied successfully.
+
+        if !hasKey
+            .no-key-notice
+                | No Comic Vine API key configured.
+                a(href='/plugins/comic-vine') Add one in settings
+                | .
+        else
+            p.section-label Search Comic Vine
+            .search-row
+                input#q(type='text' placeholder='Series name, issue #…' value=defaultQuery)
+                button.btn#search-btn(type='button') Search
+            div#spinner Searching…
+            div.alert--err#error-msg
+            div#results
+
+    script.
+        const COMIC_ID = !{JSON.stringify(comic.id)};
+
+        const qInput   = document.getElementById('q');
+        const searchBtn= document.getElementById('search-btn');
+        const results  = document.getElementById('results');
+        const spinner  = document.getElementById('spinner');
+        const errMsg   = document.getElementById('error-msg');
+
+        function stripHtml(html) {
+            const d = document.createElement('div');
+            d.textContent = html; // assign as text so nothing executes
+            return d.textContent;
+        }
+
+        async function doSearch() {
+            const q = qInput.value.trim();
+            if (!q) return;
+            results.textContent = '';
+            errMsg.style.display = 'none';
+            spinner.style.display = 'block';
+
+            try {
+                const r = await fetch('/plugins/comic-vine/search?' + new URLSearchParams({ q }));
+                const data = await r.json();
+                spinner.style.display = 'none';
+
+                if (data.error) {
+                    errMsg.textContent = data.error;
+                    errMsg.style.display = 'block';
+                    return;
+                }
+                if (!data.results?.length) {
+                    results.textContent = 'No results found.';
+                    results.style.color = 'var(--text-muted)';
+                    results.style.fontSize = '.88rem';
+                    return;
+                }
+                results.style.color = ''; results.style.fontSize = '';
+                for (const item of data.results) {
+                    results.appendChild(buildCard(item));
+                }
+            } catch (e) {
+                spinner.style.display = 'none';
+                errMsg.textContent = 'Search failed: ' + e.message;
+                errMsg.style.display = 'block';
+            }
+        }
+
+        function buildCard(item) {
+            const card = document.createElement('div');
+            card.className = 'cv-card';
+
+            const imgUrl = item.image?.small_url;
+            if (imgUrl) {
+                const img = document.createElement('img');
+                img.className = 'cv-card__img';
+                img.alt = '';
+                img.src = imgUrl;
+                card.appendChild(img);
+            } else {
+                const ph = document.createElement('div');
+                ph.className = 'cv-card__img cv-card__img--placeholder';
+                ph.textContent = '📖';
+                card.appendChild(ph);
+            }
+
+            const body = document.createElement('div');
+            body.className = 'cv-card__body';
+
+            const seriesEl = document.createElement('div');
+            seriesEl.className = 'cv-card__series';
+            seriesEl.textContent = item.volume?.name ?? '';
+            body.appendChild(seriesEl);
+
+            const titleEl = document.createElement('div');
+            titleEl.className = 'cv-card__title';
+            const issuePart = item.issue_number ? ' #' + item.issue_number : '';
+            titleEl.textContent = (item.name || (item.volume?.name ?? '') + issuePart);
+            body.appendChild(titleEl);
+
+            const meta = document.createElement('div');
+            meta.className = 'cv-card__meta';
+            const year = item.cover_date ? item.cover_date.slice(0,4) : '';
+            meta.textContent = ['Issue ' + (item.issue_number || '?'), year].filter(Boolean).join('  ·  ');
+            body.appendChild(meta);
+
+            if (item.deck) {
+                const desc = document.createElement('div');
+                desc.className = 'cv-card__desc';
+                desc.textContent = stripHtml(item.deck);
+                body.appendChild(desc);
+            }
+
+            const applyWrap = document.createElement('div');
+            applyWrap.className = 'cv-card__apply';
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/plugins/comic-vine/apply';
+
+            function hidden(name, value) {
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = name; inp.value = value ?? '';
+                form.appendChild(inp);
+            }
+
+            hidden('comic_id', COMIC_ID);
+            hidden('title', item.name || (item.volume?.name ?? '') + (item.issue_number ? ' #' + item.issue_number : ''));
+            hidden('series', item.volume?.name ?? '');
+            hidden('issue', item.issue_number ?? '');
+            hidden('year', item.cover_date ? item.cover_date.slice(0,4) : '');
+            hidden('deck', item.deck ? stripHtml(item.deck) : '');
+            hidden('image_url', item.image?.small_url ?? '');
+
+            const btn = document.createElement('button');
+            btn.type = 'submit';
+            btn.textContent = 'Apply to comic';
+            form.appendChild(btn);
+            applyWrap.appendChild(form);
+            body.appendChild(applyWrap);
+            card.appendChild(body);
+            return card;
+        }
+
+        searchBtn.addEventListener('click', doSearch);
+        qInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+        // Auto-search on load
+        if (qInput.value.trim()) doSearch();

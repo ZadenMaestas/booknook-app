@@ -20,6 +20,7 @@ export class User extends Model {
     declare username: string;
     declare password_hash: string;
     declare is_admin: number;
+    declare permissions: string | null;
     declare created_at: string;
 }
 User.init({
@@ -27,6 +28,7 @@ User.init({
     username:      { type: DataTypes.TEXT, allowNull: false, unique: true },
     password_hash: { type: DataTypes.TEXT, allowNull: false },
     is_admin:      { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    permissions:   { type: DataTypes.TEXT, allowNull: true, defaultValue: null },
     created_at:    { type: DataTypes.TEXT },
 }, { sequelize, tableName: 'users', timestamps: false });
 
@@ -123,6 +125,7 @@ export class ReadingProgress extends Model {
     declare book_id: number;
     declare cfi: string | null;
     declare percentage: number;
+    declare page: number;
     declare updated_at: string;
 }
 ReadingProgress.init({
@@ -130,6 +133,7 @@ ReadingProgress.init({
     book_id:    { type: DataTypes.INTEGER, primaryKey: true },
     cfi:        { type: DataTypes.TEXT },
     percentage: { type: DataTypes.REAL, defaultValue: 0 },
+    page:       { type: DataTypes.INTEGER, defaultValue: 0 },
     updated_at: { type: DataTypes.TEXT },
 }, { sequelize, tableName: 'reading_progress', timestamps: false });
 

@@ -1,0 +1,70 @@
+extends /views/layout.pug
+
+block title
+    title Comic Vine — BookNook
+
+block content
+    style.
+        .cv-wrap { padding: 2rem 2.5rem; max-width: 960px; }
+        .cv-heading { font-family: 'Newsreader', serif; font-weight: 700; font-size: 2rem; margin: 0 0 1.75rem; }
+        .cv-section { margin-bottom: 2.5rem; }
+        .section-label { font-family: 'JetBrains Mono', monospace; font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin: 0 0 .75rem; }
+        .cv-form { display: flex; gap: .6rem; align-items: flex-end; flex-wrap: wrap; padding: 1.25rem; background: var(--bg-alt); border-radius: 6px; }
+        .cv-form-field { display: flex; flex-direction: column; gap: .3rem; flex: 1; min-width: 220px; }
+        .cv-form-field label { font-family: 'JetBrains Mono', monospace; font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); }
+        .cv-form input { font-family: 'Space Grotesk', sans-serif; font-size: .9rem; padding: .5rem .7rem; border: 1.5px solid rgba(196,122,59,.35); border-radius: 4px; background: var(--bg); color: var(--text); }
+        .cv-form input:focus { outline: none; border-color: var(--amber); }
+        .key-status { font-family: 'JetBrains Mono', monospace; font-size: .78rem; padding: .3rem .6rem; border-radius: 3px; display: inline-block; margin-bottom: .75rem; }
+        .key-status--set   { background: rgba(93,107,74,.15); color: #5d6b4a; }
+        .key-status--unset { background: rgba(139,58,47,.1); color: #8b3a2f; }
+        .alert--ok { padding: .6rem 1rem; background: rgba(93,107,74,.12); border: 1px solid rgba(93,107,74,.3); color: #5d6b4a; border-radius: 4px; font-size: .88rem; margin-bottom: 1.25rem; }
+        .cv-table { width: 100%; border-collapse: collapse; }
+        .cv-table th { text-align: left; font-family: 'JetBrains Mono', monospace; font-size: .66rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); padding: .35rem .6rem; border-bottom: 1px solid rgba(196,122,59,.2); }
+        .cv-table td { padding: .55rem .6rem; border-bottom: 1px solid rgba(196,122,59,.06); font-size: .88rem; vertical-align: middle; }
+        .cv-table tr:last-child td { border-bottom: none; }
+        .mono-sm { font-family: 'JetBrains Mono', monospace; font-size: .75rem; color: var(--text-muted); }
+        .btn-xs { font-family: 'Space Grotesk', sans-serif; font-size: .76rem; font-weight: 600; padding: .25rem .55rem; border-radius: 4px; border: 1.5px solid rgba(196,122,59,.45); color: var(--amber); background: transparent; cursor: pointer; transition: background 130ms, color 130ms; text-decoration: none; display: inline-block; }
+        .btn-xs:hover { background: var(--amber); color: var(--cream); }
+
+    .cv-wrap
+        h1.cv-heading Comic Vine Metadata
+
+        if saved
+            .alert--ok API key saved.
+
+        .cv-section
+            p.section-label API Key
+            if apiKey
+                span.key-status.key-status--set= 'Key set: ' + apiKey
+            else
+                span.key-status.key-status--unset No API key — get one free at comicvine.gamespot.com/api
+            br
+            br
+            form.cv-form(action='/plugins/comic-vine/settings' method='POST')
+                .cv-form-field
+                    label New API Key
+                    input(type='text' name='api_key' placeholder='Paste your Comic Vine API key…' autocomplete='off')
+                button.btn(type='submit' style='align-self: flex-end') Save Key
+
+        .cv-section
+            p.section-label Comics Library
+            if comics.length
+                table.cv-table
+                    thead
+                        tr
+                            th Title
+                            th Series
+                            th #
+                            th Year
+                            th
+                    tbody
+                        each comic in comics
+                            tr
+                                td= comic.title
+                                td.mono-sm= comic.series || '—'
+                                td.mono-sm= comic.issue || '—'
+                                td.mono-sm= comic.year || '—'
+                                td
+                                    a.btn-xs(href='/plugins/comic-vine/lookup/' + comic.id) Lookup
+            else
+                p(style='font-size:.88rem;color:var(--text-muted);font-style:italic') No comics in library yet.

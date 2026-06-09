@@ -207,9 +207,6 @@ main.comic-reader { padding: 0; }
   align-items: center;
 }
 
-.logo--dark { display: none; }
-[data-theme="dark"] .logo--light { display: none; }
-[data-theme="dark"] .logo--dark  { display: block; }
 
 .sidebar__nav {
   flex: 1;
@@ -1192,6 +1189,7 @@ label[for="uploadedBook"] {
 .reader__page-input:disabled { opacity: 0.4; }
 
 .reader__page-sep { opacity: 0.5; }
+.reader__page-right-sep { display: none; opacity: 0.5; }
 .reader__page-right { display: none; }
 .reader__page-total { min-width: 24px; }
 

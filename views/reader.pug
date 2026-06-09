@@ -17,7 +17,7 @@ block content
                 p.reader__title= book.title
                 p.reader__author= book.author || 'Unknown'
             .reader__topbar-end
-                button#dual-btn.reader__icon-btn.is-active(title="Switch to single page")
+                button#dual-btn.reader__icon-btn(title="Switch to dual page")
                     svg(xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round")
                         rect(x="2" y="3" width="8" height="18" rx="1.5")
                         rect(x="14" y="3" width="8" height="18" rx="1.5")
@@ -36,10 +36,7 @@ block content
                     polyline(points="15 18 9 12 15 6")
                 | Prev
             .reader__page-wrap
-                input#page-input.reader__page-input(type="number" min="1" aria-label="Go to location" disabled)
-                span#page-right.reader__page-right
-                span.reader__page-sep /
-                span#page-total.reader__page-total
+                input#page-input.reader__page-input(type="number" min="0" aria-label="Go to page")
             button#next.reader__nav-btn
                 | Next
                 svg(xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round")
@@ -51,12 +48,11 @@ block scripts
 
         const BOOK_ID   = !{JSON.stringify(book.id)};
         const SAVED_CFI = !{JSON.stringify(progress && progress.cfi || null)};
+        const SAVED_PAGE = !{JSON.stringify(progress && progress.page != null ? progress.page : 0)};
         const IS_PDF    = !{JSON.stringify(book.filePath.endsWith('.pdf'))};
 
         const viewer       = document.getElementById('viewer');
         const pageInput    = document.getElementById('page-input');
-        const pageTotal    = document.getElementById('page-total');
-        const pageRight    = document.getElementById('page-right');
         const progressFill = document.getElementById('progress-fill');
         const fsBtn        = document.getElementById('fs-toggle');
         const dualBtn      = document.getElementById('dual-btn');
@@ -67,7 +63,6 @@ block scripts
 
         const baseCSS = `
             @namespace epub "http://www.idpf.org/2007/ops";
-            html { color-scheme: light dark; }
             p, li, blockquote, dd {
                 line-height: 1.6;
                 text-align: justify;
@@ -90,8 +85,19 @@ block scripts
             }
         `;
 
-        const darkOverrideCSS = `
+        // Explicit colour-scheme on each branch so the iframe never inherits the OS
+        // setting independently of the app's own theme toggle.
+        const lightCSS = `
             html, body {
+                color-scheme: light !important;
+                background: #fff !important;
+                color: #1a1a1a !important;
+            }
+        `;
+
+        const darkCSS = `
+            html, body {
+                color-scheme: dark !important;
                 background: #1a1d29 !important;
                 color: #d4cfc8 !important;
             }
@@ -110,70 +116,133 @@ block scripts
             img { filter: brightness(0.85); }
         `;
 
-        const getCSS = () => isDark()
-            ? [baseCSS, darkOverrideCSS]
-            : [baseCSS, ''];
+        const getCSS = () => isDark() ? [baseCSS, darkCSS] : [baseCSS, lightCSS];
 
         btnPrev.disabled = true;
         btnNext.disabled = true;
-        pageInput.disabled = true;
 
-        let totalLoc = 0;
-        let isDualPage = true;
+        // Own page counter: 0 = cover/first screen, increments/decrements with nav.
+        // Stored per user in DB alongside the CFI (which handles actual position restore).
+        let page = SAVED_PAGE;
+        pageInput.value = page;
 
-        dualBtn.addEventListener('click', () => {
-            isDualPage = !isDualPage;
-            viewer.renderer?.setAttribute('max-column-count', isDualPage ? '2' : '1');
-            dualBtn.classList.toggle('is-active', isDualPage);
-            dualBtn.title = isDualPage ? 'Switch to single page' : 'Switch to dual page';
-            updatePageCounter();
-        });
+        // Dual-page mode — auto-enabled when viewer is wide enough
+        let isDualPage = false;
 
-        pageInput.addEventListener('keydown', e => {
-            if (e.key !== 'Enter') return;
-            const n = parseInt(pageInput.value, 10);
-            if (!isNaN(n) && totalLoc > 0) viewer.goToFraction((n - 1) / totalLoc);
-        });
-        pageInput.addEventListener('blur', () => {
-            if (totalLoc > 0) pageInput.value = parseInt(pageInput.value, 10) || 1;
-        });
+        function applyDualPage(dual) {
+            if (dual === isDualPage) return;
+            isDualPage = dual;
+            viewer.renderer?.setAttribute('max-column-count', dual ? '2' : '1');
+            dualBtn.classList.toggle('is-active', dual);
+            dualBtn.title = dual ? 'Switch to single page' : 'Switch to dual page';
+        }
+        dualBtn.addEventListener('click', () => applyDualPage(!isDualPage));
+        const syncDualPage = () => applyDualPage(viewer.offsetWidth >= 900);
 
         const saveProgress = (cfi, fraction) => {
             fetch('/books/' + BOOK_ID + '/progress', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cfi: cfi ?? String(fraction), percentage: fraction }),
+                body: JSON.stringify({ cfi: cfi ?? String(fraction), percentage: fraction, page }),
             });
         };
 
-        const updatePageCounter = () => {
-            const loc = viewer.lastLocation?.location;
-            if (!loc) return;
-            totalLoc = loc.total;
-            pageInput.value = loc.current + 1;
-            pageInput.max = totalLoc;
-            pageTotal.textContent = totalLoc;
-            if (isDualPage && loc.next > loc.current) {
-                pageRight.textContent = '–' + (loc.next + 1);
-                pageRight.style.display = 'inline';
+        // navDirection: set on button/key press, consumed by next relocate.
+        // suppressCount: skips intermediate relocate in dual mode (first of two goRight calls).
+        // isJumping: goToPage owns relocate events while active.
+        let navDirection = 0;
+        let navTimeout   = null;
+        let suppressCount = 0;
+        let isJumping    = false;
+        let lastCfi      = null;
+
+        const goNavStep = (forward) => {
+            clearTimeout(navTimeout);
+            navDirection = forward ? 1 : -1;
+            if (isDualPage) {
+                suppressCount++;
+                forward ? viewer.goRight() : viewer.goLeft();
+                setTimeout(() => { forward ? viewer.goRight() : viewer.goLeft(); }, 160);
+                navTimeout = setTimeout(() => { navDirection = 0; suppressCount = Math.max(0, suppressCount - 1); }, 700);
             } else {
-                pageRight.style.display = 'none';
+                forward ? viewer.goRight() : viewer.goLeft();
+                navTimeout = setTimeout(() => { navDirection = 0; }, 400);
             }
         };
 
+        // Jump to a target page by simulating next/prev one step at a time.
+        // Temporarily switches to single column so each step is always one column,
+        // then restores the original mode at the end.
+        const goToPage = async (target) => {
+            const delta = target - page;
+            if (delta === 0 || isJumping) return;
+            const forward = delta > 0;
+            const steps   = Math.abs(delta);
+
+            isJumping = true;
+            btnPrev.disabled = true;
+            btnNext.disabled = true;
+
+            const wasDual = isDualPage;
+            if (wasDual) viewer.renderer?.setAttribute('max-column-count', '1');
+
+            for (let i = 0; i < steps; i++) {
+                const prevCfi = lastCfi;
+                forward ? viewer.goRight() : viewer.goLeft();
+
+                const result = await new Promise(resolve => {
+                    const t = setTimeout(() => resolve(null), 400);
+                    const h = ({ detail }) => {
+                        clearTimeout(t);
+                        viewer.removeEventListener('relocate', h);
+                        resolve(detail);
+                    };
+                    viewer.addEventListener('relocate', h);
+                });
+
+                if (!result || result.cfi === prevCfi) break; // hit boundary
+                lastCfi = result.cfi;
+                page = forward ? page + 1 : Math.max(0, page - 1);
+                pageInput.value = page;
+                progressFill.style.width = (result.fraction * 100) + '%';
+            }
+
+            if (wasDual) viewer.renderer?.setAttribute('max-column-count', '2');
+            isJumping = false;
+            btnPrev.disabled = false;
+            btnNext.disabled = false;
+            if (viewer.lastLocation) saveProgress(viewer.lastLocation.cfi, viewer.lastLocation.fraction ?? 0);
+        };
+
+        pageInput.addEventListener('keydown', e => {
+            if (e.key !== 'Enter') return;
+            const n = parseInt(pageInput.value, 10);
+            if (!isNaN(n) && n >= 0) goToPage(n);
+        });
+        pageInput.addEventListener('blur', () => { pageInput.value = page; });
+
         viewer.addEventListener('relocate', ({ detail }) => {
+            if (isJumping) return;
             const { fraction, cfi } = detail;
+            if (suppressCount > 0) { suppressCount--; return; }
+            if (navDirection !== 0) {
+                if (cfi !== lastCfi) page = Math.max(0, page + navDirection);
+                navDirection = 0;
+            }
+            lastCfi = cfi;
+            pageInput.value = page;
             progressFill.style.width = (fraction * 100) + '%';
             saveProgress(cfi, fraction);
         });
 
         const handleKeydown = e => {
-            if (e.key === 'ArrowLeft') viewer.goLeft();
-            else if (e.key === 'ArrowRight') viewer.goRight();
+            if (e.key === 'ArrowLeft') goNavStep(false);
+            else if (e.key === 'ArrowRight') goNavStep(true);
             else if (e.key === 'Escape' && document.fullscreenElement) document.exitFullscreen();
         };
 
         viewer.addEventListener('load', ({ detail: { doc } }) => {
+            viewer.renderer?.setAttribute('max-column-count', isDualPage ? '2' : '1');
             viewer.renderer.setStyles?.(getCSS());
             doc.addEventListener('keydown', handleKeydown);
         });
@@ -182,9 +251,8 @@ block scripts
             viewer.renderer.setStyles?.(getCSS());
         });
 
-        btnPrev.addEventListener('click', () => viewer.goLeft());
-        btnNext.addEventListener('click', () => viewer.goRight());
-
+        btnPrev.addEventListener('click', () => goNavStep(false));
+        btnNext.addEventListener('click', () => goNavStep(true));
         document.addEventListener('keydown', handleKeydown);
 
         fsBtn.addEventListener('click', () => {
@@ -206,17 +274,10 @@ block scripts
         viewer.open('/books/file/' + BOOK_ID)
             .then(() => {
                 viewer.renderer.setStyles?.(getCSS());
+                syncDualPage();
+                new ResizeObserver(syncDualPage).observe(viewer);
                 btnPrev.disabled = false;
                 btnNext.disabled = false;
-                pageInput.disabled = false;
-                // Listen on the renderer (not foliate-view) to get `reason`.
-                // Skip 'anchor' (font-load / resize re-anchors) — those auto-relocates
-                // shift position by ~1 page and corrupt the counter.
-                // foliate-view's own listener runs first and updates lastLocation before ours.
-                viewer.renderer.addEventListener('relocate', ({ detail: { reason } }) => {
-                    if (reason === 'anchor' || reason === 'selection') return;
-                    updatePageCounter();
-                });
                 if (SAVED_CFI && SAVED_CFI.startsWith('epubcfi(')) {
                     viewer.goTo(SAVED_CFI);
                 } else if (SAVED_CFI && IS_PDF) {

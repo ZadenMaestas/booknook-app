@@ -3,6 +3,36 @@ extends layout
 block title
     title Users — BookNook
 
+block head
+    style.
+        .perm-panel {
+            padding: .7rem 1rem .8rem 1rem;
+            background: var(--bg-alt);
+            border-bottom: 1px solid rgba(196,122,59,.1);
+        }
+        .perm-panel--hidden { display: none; }
+        .perm-row { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+        .perm-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .68rem; text-transform: uppercase; letter-spacing: .07em;
+            color: var(--text-muted); margin-right: .25rem;
+        }
+        .perm-checks { display: flex; gap: 1.25rem; }
+        .perm-check-item { display: flex; align-items: center; gap: .35rem; cursor: pointer; font-size: .88rem; }
+        .perm-check-item input { accent-color: var(--amber); width: 15px; height: 15px; cursor: pointer; }
+        .perm-saved {
+            font-family: 'JetBrains Mono', monospace; font-size: .72rem;
+            color: #5d6b4a; opacity: 0; transition: opacity 300ms;
+        }
+        [data-theme="dark"] .perm-saved { color: #8fba72; }
+        .btn-perms {
+            font-family: 'Space Grotesk', sans-serif; font-size: .76rem; font-weight: 600;
+            padding: .25rem .55rem; border-radius: 4px;
+            border: 1.5px solid rgba(196,122,59,.35); color: var(--text-muted);
+            background: transparent; cursor: pointer; transition: border-color 140ms, color 140ms;
+        }
+        .btn-perms:hover, .btn-perms.active { border-color: var(--amber); color: var(--amber); }
+
 block content
     main
         .row
@@ -16,12 +46,30 @@ block content
                             th
                     tbody
                         each u in users
+                            - const excl = u.permissions ? JSON.parse(u.permissions) : []
                             tr(data-user-id=u.id)
                                 td.admin-table__username= u.username
-                                td.admin-table__date= u.created_at.slice(0, 10)
+                                td.admin-table__date= u.created_at ? u.created_at.slice(0, 10) : '—'
                                 td.admin-table__actions
                                     if u.username !== user.username
+                                        button.btn-perms.js-perm-toggle(data-user-id=u.id) Permissions
                                         button.btn-danger.js-delete-user Delete
+                            tr.perm-panel.perm-panel--hidden(data-user-id=u.id)
+                                td(colspan='3')
+                                    .perm-row
+                                        span.perm-label Access
+                                        .perm-checks
+                                            label.perm-check-item
+                                                input.js-perm-check(type='checkbox' data-section='books' checked=!excl.includes('books'))
+                                                span Books
+                                            label.perm-check-item
+                                                input.js-perm-check(type='checkbox' data-section='comics' checked=!excl.includes('comics'))
+                                                span Comics
+                                            label.perm-check-item
+                                                input.js-perm-check(type='checkbox' data-section='plugins' checked=!excl.includes('plugins'))
+                                                span Plugins
+                                        span.perm-saved Saved ✓
+
             .settings-section
                 h2 Add user
                 if error
@@ -37,12 +85,49 @@ block content
 
 block scripts
     script.
+        // Toggle permissions panel
+        document.querySelectorAll('.js-perm-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const userId = btn.dataset.userId;
+                const panel = document.querySelector(`.perm-panel[data-user-id="${userId}"]`);
+                const hidden = panel.classList.toggle('perm-panel--hidden');
+                btn.classList.toggle('active', !hidden);
+            });
+        });
+
+        // Auto-save on checkbox change
+        document.querySelectorAll('.perm-panel').forEach(panel => {
+            const userId = panel.dataset.userId;
+            const savedEl = panel.querySelector('.perm-saved');
+
+            panel.querySelectorAll('.js-perm-check').forEach(cb => {
+                cb.addEventListener('change', async () => {
+                    const excluded = [...panel.querySelectorAll('.js-perm-check')]
+                        .filter(c => !c.checked)
+                        .map(c => c.dataset.section);
+
+                    await fetch(`/admin/users/${userId}/permissions`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ excluded }),
+                    });
+
+                    savedEl.style.opacity = '1';
+                    setTimeout(() => { savedEl.style.opacity = '0'; }, 1800);
+                });
+            });
+        });
+
+        // Delete user
         document.querySelectorAll('.js-delete-user').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const row = btn.closest('tr');
                 const id = row.dataset.userId;
                 if (!confirm('Delete this user?')) return;
                 await fetch(`/admin/users/${id}`, { method: 'DELETE' });
+                // Remove both the user row and its permissions panel
+                const permPanel = document.querySelector(`.perm-panel[data-user-id="${id}"]`);
                 row.remove();
+                permPanel?.remove();
             });
         });

@@ -137,6 +137,24 @@ ReadingProgress.init({
     updated_at: { type: DataTypes.TEXT },
 }, { sequelize, tableName: 'reading_progress', timestamps: false });
 
+export class UserBookAccess extends Model {
+    declare user_id: number;
+    declare book_id: number;
+}
+UserBookAccess.init({
+    user_id: { type: DataTypes.INTEGER, primaryKey: true },
+    book_id: { type: DataTypes.INTEGER, primaryKey: true },
+}, { sequelize, tableName: 'user_book_access', timestamps: false });
+
+export class UserComicAccess extends Model {
+    declare user_id: number;
+    declare comic_id: number;
+}
+UserComicAccess.init({
+    user_id: { type: DataTypes.INTEGER, primaryKey: true },
+    comic_id: { type: DataTypes.INTEGER, primaryKey: true },
+}, { sequelize, tableName: 'user_comic_access', timestamps: false });
+
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 await sequelize.query('PRAGMA journal_mode=WAL');

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import { User, ApiKey, Book, Comic, ComicSeries, ReadingProgress } from '../database';
+import { User, ApiKey, Book, Comic, ComicSeries, ReadingProgress, UserBookAccess, UserComicAccess } from '../database';
 import { requireAdmin } from '../middleware/auth';
 import { render } from '../utils/render';
 import { getMigrationStatus, runPendingMigrations } from '../utils/migrationRunner';
@@ -26,6 +26,38 @@ router.get('/library', requireAdmin, async c => {
 router.get('/admin/users', requireAdmin, async c => {
     const users = await User.findAll({ attributes: ['id', 'username', 'created_at', 'permissions'] });
     return render(c, 'admin-users', { users: users.map(u => u.toJSON()) });
+});
+
+router.get('/admin/users/:id/access', requireAdmin, async c => {
+    const userId = Number(c.req.param('id'));
+    const [bookRows, comicRows, books, comics] = await Promise.all([
+        UserBookAccess.findAll({ where: { user_id: userId }, attributes: ['book_id'] }),
+        UserComicAccess.findAll({ where: { user_id: userId }, attributes: ['comic_id'] }),
+        Book.findAll({ attributes: ['id', 'title', 'author'], order: [['title', 'ASC']] }),
+        Comic.findAll({ attributes: ['id', 'title', 'series', 'issue'], order: [['series', 'ASC'], ['title', 'ASC']] }),
+    ]);
+    return c.json({
+        bookIds: bookRows.map(r => r.book_id),
+        comicIds: comicRows.map(r => r.comic_id),
+        books: books.map(b => b.toJSON()),
+        comics: comics.map(c => c.toJSON()),
+    });
+});
+
+router.put('/admin/users/:id/book-access', requireAdmin, async c => {
+    const userId = Number(c.req.param('id'));
+    const { ids } = await c.req.json() as { ids: number[] };
+    await UserBookAccess.destroy({ where: { user_id: userId } });
+    if (ids.length) await UserBookAccess.bulkCreate(ids.map(book_id => ({ user_id: userId, book_id })));
+    return c.json({ ok: true });
+});
+
+router.put('/admin/users/:id/comic-access', requireAdmin, async c => {
+    const userId = Number(c.req.param('id'));
+    const { ids } = await c.req.json() as { ids: number[] };
+    await UserComicAccess.destroy({ where: { user_id: userId } });
+    if (ids.length) await UserComicAccess.bulkCreate(ids.map(comic_id => ({ user_id: userId, comic_id })));
+    return c.json({ ok: true });
 });
 
 router.patch('/admin/users/:id/permissions', requireAdmin, async c => {

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import fs from 'fs';
 import path from 'path';
-import { Comic, ComicProgress, ComicSeries, sequelize } from '../database';
+import { Comic, ComicProgress, ComicSeries, UserComicAccess, sequelize } from '../database';
 import { requireApiKey } from '../middleware/apiKey';
 import { render } from '../utils/render';
 import { getPages, getPage } from '../utils/cbzUtils';
@@ -64,7 +64,8 @@ comicsApi.post('/ingest', requireApiKey, async c => {
     fs.mkdirSync(COMICS_DIR, { recursive: true });
     fs.mkdirSync(COVER_DIR, { recursive: true });
 
-    const results = await Promise.all(validFiles.map(importComicFile));
+    const results: UploadResult[] = [];
+    for (const file of validFiles) results.push(await importComicFile(file));
     const anyError = results.some(r => r.status === 'error');
     return c.json(results, anyError ? 207 : 200);
 });
@@ -74,8 +75,16 @@ comicsApi.post('/ingest', requireApiKey, async c => {
 const router = new Hono<{ Variables: AppVariables }>();
 router.use('*', requirePermission('comics'));
 
+async function allowedComicIds(userId: number): Promise<Set<number> | null> {
+    const rows = await UserComicAccess.findAll({ where: { user_id: userId }, attributes: ['comic_id'] });
+    return rows.length ? new Set(rows.map(r => r.comic_id)) : null;
+}
+
 router.get('/', async c => {
-    const comics = await Comic.findAll({ order: [['series', 'ASC'], ['title', 'ASC']] });
+    const user = c.get('session').user!;
+    const allowed = user.isAdmin ? null : await allowedComicIds(user.id);
+    const allComics = await Comic.findAll({ order: [['series', 'ASC'], ['title', 'ASC']] });
+    const comics = allowed ? allComics.filter(c => allowed.has(c.id)) : allComics;
     const seriesMap = new Map<string, typeof comics>();
     const standalone: typeof comics = [];
     for (const comic of comics) {
@@ -104,17 +113,21 @@ router.post('/upload', async c => {
     fs.mkdirSync(COMICS_DIR, { recursive: true });
     fs.mkdirSync(COVER_DIR, { recursive: true });
 
-    const results = await Promise.all(validFiles.map(importComicFile));
+    const results: UploadResult[] = [];
+    for (const file of validFiles) results.push(await importComicFile(file));
     const anyError = results.some(r => r.status === 'error');
     return c.json(results, anyError ? 207 : 200);
 });
 
 router.get('/series/:name', async c => {
     const name = decodeURIComponent(c.req.param('name'));
-    const [comics, seriesRecord] = await Promise.all([
+    const user = c.get('session').user!;
+    const allowed = user.isAdmin ? null : await allowedComicIds(user.id);
+    const [allComics, seriesRecord] = await Promise.all([
         Comic.findAll({ where: { series: name } }),
         ComicSeries.findOne({ where: { name } }),
     ]);
+    const comics = allowed ? allComics.filter(c => allowed.has(c.id)) : allComics;
     if (!comics.length) return c.notFound();
     const sorted = sortByIssue(comics);
     const years = sorted.map(comic => comic.year).filter((y): y is number => y != null);
@@ -139,6 +152,11 @@ router.patch('/series/:name', async c => {
 
 router.get('/read/:id', async c => {
     const id = c.req.param('id');
+    const user = c.get('session').user!;
+    if (!user.isAdmin) {
+        const allowed = await allowedComicIds(user.id);
+        if (allowed && !allowed.has(Number(id))) return c.body('Forbidden', 403);
+    }
     const comic = await Comic.findByPk(id);
     if (!comic) return c.body('Not found', 404);
     if (!comic.status || comic.status === 'none' || comic.status === 'want')
@@ -151,7 +169,13 @@ router.get('/read/:id', async c => {
 });
 
 router.get('/pages/:id', async c => {
-    const comic = await Comic.findByPk(c.req.param('id'), { attributes: ['filePath'] });
+    const id = c.req.param('id');
+    const user = c.get('session').user!;
+    if (!user.isAdmin) {
+        const allowed = await allowedComicIds(user.id);
+        if (allowed && !allowed.has(Number(id))) return c.body(null, 403);
+    }
+    const comic = await Comic.findByPk(id, { attributes: ['filePath'] });
     if (!comic) return c.body(null, 404);
     try { return c.json(await getPages(comic.filePath)); }
     catch (e) { return c.json({ error: (e as Error).message }, 500); }
@@ -159,6 +183,11 @@ router.get('/pages/:id', async c => {
 
 router.get('/page/:id/*', async c => {
     const id = c.req.param('id');
+    const user = c.get('session').user!;
+    if (!user.isAdmin) {
+        const allowed = await allowedComicIds(user.id);
+        if (allowed && !allowed.has(Number(id))) return c.body(null, 403);
+    }
     const comic = await Comic.findByPk(id, { attributes: ['filePath'] });
     if (!comic) return c.body(null, 404);
     const entry = decodeURIComponent(c.req.path.slice(`/comics/page/${id}/`.length));
@@ -175,8 +204,13 @@ router.get('/page/:id/*', async c => {
 router.post('/:id/progress', async c => {
     const { page } = await c.req.json() as { page: number };
     const id = c.req.param('id');
+    const user = c.get('session').user!;
+    if (!user.isAdmin) {
+        const allowed = await allowedComicIds(user.id);
+        if (allowed && !allowed.has(Number(id))) return c.body('Forbidden', 403);
+    }
     await ComicProgress.upsert({
-        user_id: c.get('session').user!.id,
+        user_id: user.id,
         comic_id: Number(id),
         page,
     });
@@ -225,6 +259,7 @@ router.delete('/:id', async c => {
     if (!comic) return c.body(null, 404);
     await Comic.destroy({ where: { id } });
     await ComicProgress.destroy({ where: { comic_id: id } });
+    await UserComicAccess.destroy({ where: { comic_id: id } });
     [comic.filePath, path.join(COVER_DIR, `c${id}.jpg`)].forEach(f => { try { fs.unlinkSync(f); } catch {} });
     return c.body(null, 204);
 });

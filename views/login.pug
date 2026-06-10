@@ -5,6 +5,10 @@ html
         meta(name="viewport" content="width=device-width, initial-scale=1")
         link(rel="icon" href="/assets/favicon.svg")
         link(rel="stylesheet" href="/styles.css")
+        style.
+            .login-logo__dark { display: none; }
+            [data-theme="dark"] .login-logo__dark { display: block; }
+            [data-theme="dark"] .login-logo__light { display: none; }
         script.
             const _t = localStorage.getItem('theme');
             if (_t) document.documentElement.setAttribute('data-theme', _t);
@@ -12,7 +16,8 @@ html
         .login-page
             .login-card
                 a.login-logo(href='/')
-                    img(src="/assets/logo.svg" alt="BookNook" height="40")
+                    img.login-logo__light(src="/assets/logo.svg" alt="BookNook" height="40")
+                    img.login-logo__dark(src="/assets/logo-dark.svg" alt="BookNook" height="40")
                 h1.login-title Sign in
                 if error
                     p.login-error= error

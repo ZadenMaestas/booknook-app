@@ -5,17 +5,48 @@ block title
 
 block head
     style.
-        .perm-panel { padding: .6rem 1rem .7rem; background: var(--bg-alt); border-bottom: 1px solid rgba(196,122,59,.1); display: none; }
-        .perm-panel.open { display: block; }
-        .perm-row { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
-        .perm-label { font-family: 'JetBrains Mono', monospace; font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); }
-        .perm-checks { display: flex; gap: 1.1rem; }
-        .perm-check-item { display: flex; align-items: center; gap: .3rem; font-size: .88rem; cursor: pointer; }
+        .perm-panel { padding: .7rem 1rem .8rem 1rem; background: var(--bg-alt); border-bottom: 1px solid rgba(196,122,59,.1); }
+        .perm-panel--hidden { display: none; }
+        .perm-row { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+        .perm-label { font-family: 'JetBrains Mono', monospace; font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin-right: .25rem; }
+        .perm-checks { display: flex; gap: 1.25rem; }
+        .perm-check-item { display: flex; align-items: center; gap: .35rem; cursor: pointer; font-size: .88rem; }
         .perm-check-item input { accent-color: var(--amber); width: 15px; height: 15px; cursor: pointer; }
         .perm-saved { font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: #5d6b4a; opacity: 0; transition: opacity 300ms; }
         [data-theme="dark"] .perm-saved { color: #8fba72; }
-        .btn-perms { background: none; border: 1px solid rgba(196,122,59,.35); color: var(--text-muted); padding: 4px 10px; border-radius: 4px; font-family: 'Space Grotesk', sans-serif; font-size: 13px; cursor: pointer; transition: border-color 140ms, color 140ms; margin-right: 6px; }
+        .btn-perms { font-family: 'Space Grotesk', sans-serif; font-size: .76rem; font-weight: 600; padding: .25rem .55rem; border-radius: 4px; border: 1.5px solid rgba(196,122,59,.35); color: var(--text-muted); background: transparent; cursor: pointer; transition: border-color 140ms, color 140ms; }
         .btn-perms:hover, .btn-perms.active { border-color: var(--amber); color: var(--amber); }
+        .item-access-btn { font-family: 'Space Grotesk', sans-serif; font-size: .76rem; font-weight: 600; padding: .25rem .55rem; border-radius: 4px; border: 1.5px solid rgba(196,122,59,.35); color: var(--text-muted); background: transparent; cursor: pointer; transition: border-color 140ms, color 140ms; display: inline-flex; align-items: center; gap: .35rem; }
+        .item-access-btn:hover { border-color: var(--amber); color: var(--amber); }
+        .item-access-badge { font-family: 'JetBrains Mono', monospace; font-size: .62rem; background: rgba(196,122,59,.15); color: var(--amber); padding: .1rem .3rem; border-radius: 3px; line-height: 1.4; }
+        .item-modal-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(26,29,41,.65); backdrop-filter: blur(2px); }
+        .item-modal-overlay[hidden] { display: none; }
+        .item-modal { background: var(--bg); border: 1px solid rgba(196,122,59,.25); border-radius: 6px; width: min(540px, 94vw); max-height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.28); }
+        .item-modal__header { display: flex; align-items: center; justify-content: space-between; padding: .85rem 1.1rem .7rem; border-bottom: 1px solid rgba(196,122,59,.12); }
+        .item-modal__title { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: .95rem; }
+        .item-modal__close { background: none; border: none; cursor: pointer; font-size: 1.15rem; color: var(--text-muted); line-height: 1; padding: .2rem .4rem; border-radius: 3px; }
+        .item-modal__close:hover { color: var(--text); }
+        .item-modal__toolbar { padding: .65rem 1.1rem; border-bottom: 1px solid rgba(196,122,59,.08); display: flex; gap: .6rem; align-items: center; }
+        .item-modal__search { flex: 1; background: var(--bg-alt); border: 1px solid rgba(196,122,59,.2); border-radius: 4px; padding: .32rem .6rem; color: var(--text); font-family: 'Space Grotesk', sans-serif; font-size: .84rem; }
+        .item-modal__search:focus { outline: none; border-color: var(--amber); }
+        .item-modal__unrestricted-bar { padding: 1.5rem 1.1rem; text-align: center; color: var(--text-muted); font-size: .88rem; }
+        .item-modal__unrestricted-bar strong { display: block; color: var(--text); margin-bottom: .4rem; font-size: .9rem; }
+        .item-modal__body { overflow-y: auto; flex: 1; }
+        .item-modal__item { display: flex; align-items: center; gap: .65rem; padding: .38rem 1.1rem; cursor: pointer; user-select: none; }
+        .item-modal__item:hover { background: var(--bg-alt); }
+        .item-modal__item input[type=checkbox] { accent-color: var(--amber); width: 14px; height: 14px; flex-shrink: 0; cursor: pointer; }
+        .item-modal__item-title { font-size: .87rem; flex: 1; }
+        .item-modal__item-sub { font-size: .72rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+        .item-modal__empty { padding: 2rem; text-align: center; color: var(--text-muted); font-size: .85rem; }
+        .item-modal__footer { padding: .65rem 1.1rem; border-top: 1px solid rgba(196,122,59,.12); display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+        .item-modal__count { font-family: 'JetBrains Mono', monospace; font-size: .73rem; color: var(--text-muted); }
+        .item-modal__save { background: var(--amber); color: var(--cream); border: none; cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: .82rem; padding: .35rem .9rem; border-radius: 4px; transition: background 140ms; }
+        .item-modal__save:hover { background: var(--rust); }
+        .item-modal__remove { background: none; border: 1.5px solid rgba(196,122,59,.3); border-radius: 4px; font-family: 'Space Grotesk', sans-serif; font-size: .78rem; color: var(--text-muted); padding: .3rem .7rem; cursor: pointer; transition: border-color 140ms, color 140ms; }
+        .item-modal__remove:hover { border-color: var(--amber); color: var(--amber); }
+        .item-modal__series-hdr { background: rgba(196,122,59,.05); }
+        .item-modal__series-name { font-size: .87rem; flex: 1; font-weight: 600; }
+        .item-modal__issue { padding-left: 2.4rem; }
 
 block content
     main
@@ -63,7 +94,7 @@ block content
                                             if u.username !== user.username
                                                 button.btn-perms.js-perm-toggle(data-user-id=u.id) Permissions
                                                 button.btn-danger.js-delete-user Delete
-                                    tr.perm-panel(data-user-id=u.id)
+                                    tr.perm-panel.perm-panel--hidden(data-user-id=u.id)
                                         td(colspan='3')
                                             .perm-row
                                                 span.perm-label Access
@@ -78,6 +109,14 @@ block content
                                                         input.js-perm-check(type='checkbox' data-section='plugins' checked=!excl.includes('plugins'))
                                                         span Plugins
                                                 span.perm-saved Saved ✓
+                                            .perm-row
+                                                span.perm-label Items
+                                                button.item-access-btn.js-item-access(type='button' data-user-id=u.id data-type='books' data-username=u.username)
+                                                    span Books
+                                                    span.item-access-badge(data-user-id=u.id data-type='books') …
+                                                button.item-access-btn.js-item-access(type='button' data-user-id=u.id data-type='comics' data-username=u.username)
+                                                    span Comics
+                                                    span.item-access-badge(data-user-id=u.id data-type='comics') …
                     form.settings-form(action='/admin/users' method='POST')
                         .form-field
                             label(for='new-username') Username
@@ -147,6 +186,23 @@ block content
                     if pending.length
                         button.btn#run-migrations-btn(type='button') Run #{pending.length} pending migration#{pending.length !== 1 ? 's' : ''}
 
+    #item-modal-overlay.item-modal-overlay(hidden)
+        .item-modal
+            .item-modal__header
+                span.item-modal__title
+                button.item-modal__close(type='button' aria-label='Close') ×
+            .item-modal__toolbar(style='display:none')
+                input.item-modal__search(type='search' placeholder='Search…' autocomplete='off')
+                button.item-modal__selall(type='button' style='font-size:.76rem;background:none;border:none;cursor:pointer;color:var(--text-muted);white-space:nowrap') Select all
+            .item-modal__body
+                .item-modal__unrestricted-bar
+                    strong All items visible
+                    | This user has no item restrictions.
+            .item-modal__footer
+                span.item-modal__count
+                button.item-modal__remove(type='button' style='display:none') Remove restrictions
+                button.item-modal__save(type='button') Save
+
 block scripts
     if user.isAdmin
         script.
@@ -163,9 +219,18 @@ block scripts
 
             document.querySelectorAll('.js-perm-toggle').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const panel = document.querySelector(`.perm-panel[data-user-id="${btn.dataset.userId}"]`);
-                    panel.classList.toggle('open');
-                    btn.classList.toggle('active', panel.classList.contains('open'));
+                    const userId = btn.dataset.userId;
+                    const panel = document.querySelector(`.perm-panel[data-user-id="${userId}"]`);
+                    const hidden = panel.classList.toggle('perm-panel--hidden');
+                    btn.classList.toggle('active', !hidden);
+                    if (!hidden) {
+                        fetch(`/admin/users/${userId}/access`)
+                            .then(r => r.json())
+                            .then(data => {
+                                updateBadges(userId, 'books', data.bookIds);
+                                updateBadges(userId, 'comics', data.comicIds);
+                            });
+                    }
                 });
             });
 
@@ -185,6 +250,184 @@ block scripts
                         setTimeout(() => { savedEl.style.opacity = '0'; }, 1800);
                     });
                 });
+            });
+
+            // ── Item access modal ──────────────────────────────────────────────────
+            const overlay = document.getElementById('item-modal-overlay');
+            const modal = overlay.querySelector('.item-modal');
+            let _userId = null, _type = null, _data = null, _restricted = false;
+
+            function badgeText(ids) {
+                return ids.length === 0 ? 'All' : ids.length + ' items';
+            }
+
+            function updateBadges(userId, type, ids) {
+                document.querySelectorAll(`.item-access-badge[data-user-id="${userId}"][data-type="${type}"]`)
+                    .forEach(el => { el.textContent = badgeText(ids); });
+            }
+
+            function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+            function renderList(items, selectedIds, filter) {
+                const body = modal.querySelector('.item-modal__body');
+                const toolbar = modal.querySelector('.item-modal__toolbar');
+                const removeBtn = modal.querySelector('.item-modal__remove');
+                const count = modal.querySelector('.item-modal__count');
+
+                if (!_restricted) {
+                    toolbar.style.display = 'none';
+                    removeBtn.style.display = 'none';
+                    body.innerHTML = '<div class="item-modal__unrestricted-bar"><strong>All items visible</strong>This user can see all ' + (_type === 'books' ? 'books' : 'comics') + '.<br><button id="modal-restrict-btn" type="button" style="margin-top:.75rem;background:none;border:1.5px solid rgba(196,122,59,.35);border-radius:4px;padding:.3rem .75rem;cursor:pointer;font-family:Space Grotesk,sans-serif;font-size:.8rem;color:var(--text-muted)">Restrict to specific items</button></div>';
+                    count.textContent = '';
+                    document.getElementById('modal-restrict-btn')?.addEventListener('click', () => {
+                        _restricted = true;
+                        const allItems = _type === 'books' ? _data.books : _data.comics;
+                        allItems.forEach(item => window._selectedIds.add(item.id));
+                        renderList(allItems, window._selectedIds, modal.querySelector('.item-modal__search').value);
+                    });
+                    return;
+                }
+
+                toolbar.style.display = '';
+                removeBtn.style.display = '';
+
+                const q = filter.toLowerCase();
+                const visible = q ? items.filter(item => {
+                    const title = (item.title || '').toLowerCase();
+                    const sub = (_type === 'comics' ? (item.series || '') : (item.author || '')).toLowerCase();
+                    return title.includes(q) || sub.includes(q);
+                }) : items;
+
+                if (!visible.length) {
+                    body.innerHTML = '<div class="item-modal__empty">No items found</div>';
+                    count.textContent = selectedIds.size + ' selected';
+                    return;
+                }
+
+                if (_type === 'comics') {
+                    const seriesMap = new Map();
+                    const standalone = [];
+                    for (const c of visible) {
+                        if (c.series) {
+                            if (!seriesMap.has(c.series)) seriesMap.set(c.series, []);
+                            seriesMap.get(c.series).push(c);
+                        } else {
+                            standalone.push(c);
+                        }
+                    }
+                    let html = '';
+                    for (const [series, issues] of seriesMap) {
+                        const allChecked = issues.every(c => selectedIds.has(c.id));
+                        html += `<label class="item-modal__item item-modal__series-hdr"><input type="checkbox" class="js-series-cb" data-series="${esc(series)}" ${allChecked ? 'checked' : ''}><span class="item-modal__series-name">${esc(series)}</span><span class="item-modal__item-sub">${issues.length} issue${issues.length !== 1 ? 's' : ''}</span></label>`;
+                        for (const comic of issues) {
+                            const lbl = comic.issue ? ('#' + esc(comic.issue)) : esc(comic.title);
+                            html += `<label class="item-modal__item item-modal__issue"><input type="checkbox" value="${comic.id}" ${selectedIds.has(comic.id) ? 'checked' : ''}><span class="item-modal__item-title">${lbl}</span></label>`;
+                        }
+                    }
+                    for (const comic of standalone) {
+                        html += `<label class="item-modal__item"><input type="checkbox" value="${comic.id}" ${selectedIds.has(comic.id) ? 'checked' : ''}><span class="item-modal__item-title">${esc(comic.title)}</span></label>`;
+                    }
+                    body.innerHTML = html;
+                    body.querySelectorAll('.js-series-cb').forEach(cb => {
+                        const sIssues = visible.filter(c => c.series === cb.dataset.series);
+                        cb.indeterminate = sIssues.some(c => selectedIds.has(c.id)) && !sIssues.every(c => selectedIds.has(c.id));
+                        cb.addEventListener('change', () => {
+                            items.filter(c => c.series === cb.dataset.series)
+                                 .forEach(c => { if (cb.checked) selectedIds.add(c.id); else selectedIds.delete(c.id); });
+                            renderList(items, selectedIds, filter);
+                        });
+                    });
+                    body.querySelectorAll('.item-modal__issue input[type=checkbox]').forEach(cb => {
+                        cb.addEventListener('change', () => {
+                            const id = Number(cb.value);
+                            if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+                            count.textContent = selectedIds.size + ' selected';
+                            let el = cb.closest('.item-modal__issue').previousElementSibling;
+                            while (el && !el.classList.contains('item-modal__series-hdr')) el = el.previousElementSibling;
+                            if (el) {
+                                const hdrCb = el.querySelector('.js-series-cb');
+                                const sIssues = items.filter(c => c.series === hdrCb.dataset.series);
+                                const some = sIssues.some(c => selectedIds.has(c.id));
+                                const all = sIssues.every(c => selectedIds.has(c.id));
+                                hdrCb.checked = all; hdrCb.indeterminate = some && !all;
+                            }
+                        });
+                    });
+                } else {
+                    body.innerHTML = visible.map(item => {
+                        const sub = item.author || '';
+                        return `<label class="item-modal__item"><input type="checkbox" value="${item.id}" ${selectedIds.has(item.id) ? 'checked' : ''}><span class="item-modal__item-title">${esc(item.title)}</span>${sub ? `<span class="item-modal__item-sub">${esc(sub)}</span>` : ''}</label>`;
+                    }).join('');
+                    body.querySelectorAll('input[type=checkbox]').forEach(cb => {
+                        cb.addEventListener('change', () => {
+                            const id = Number(cb.value);
+                            if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+                            count.textContent = selectedIds.size + ' selected';
+                        });
+                    });
+                }
+                count.textContent = selectedIds.size + ' selected';
+            }
+
+            function openModal(userId, type, username) {
+                _userId = userId; _type = type;
+                modal.querySelector('.item-modal__title').textContent =
+                    (type === 'books' ? 'Books' : 'Comics') + ' — ' + username;
+                modal.querySelector('.item-modal__search').value = '';
+                modal.querySelector('.item-modal__body').innerHTML =
+                    '<div class="item-modal__empty">Loading…</div>';
+                modal.querySelector('.item-modal__toolbar').style.display = 'none';
+                overlay.removeAttribute('hidden');
+
+                fetch(`/admin/users/${userId}/access`)
+                    .then(r => r.json())
+                    .then(data => {
+                        _data = data;
+                        const ids = type === 'books' ? data.bookIds : data.comicIds;
+                        _restricted = ids.length > 0;
+                        window._selectedIds = new Set(ids);
+                        renderList(type === 'books' ? data.books : data.comics, window._selectedIds, '');
+                    });
+            }
+
+            function closeModal() { overlay.setAttribute('hidden', ''); _data = null; }
+
+            overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+            modal.querySelector('.item-modal__close').addEventListener('click', closeModal);
+
+            modal.querySelector('.item-modal__search').addEventListener('input', e => {
+                if (!_data) return;
+                const items = _type === 'books' ? _data.books : _data.comics;
+                renderList(items, window._selectedIds, e.target.value);
+            });
+
+            modal.querySelector('.item-modal__selall').addEventListener('click', () => {
+                if (!_data) return;
+                const items = _type === 'books' ? _data.books : _data.comics;
+                items.forEach(item => window._selectedIds.add(item.id));
+                renderList(items, window._selectedIds, modal.querySelector('.item-modal__search').value);
+            });
+
+            modal.querySelector('.item-modal__remove').addEventListener('click', async () => {
+                const endpoint = `/admin/users/${_userId}/${_type === 'books' ? 'book' : 'comic'}-access`;
+                await fetch(endpoint, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [] }) });
+                updateBadges(_userId, _type, []);
+                closeModal();
+            });
+
+            modal.querySelector('.item-modal__save').addEventListener('click', async () => {
+                if (!_data) return closeModal();
+                const allItems = _type === 'books' ? _data.books : _data.comics;
+                const ids = _restricted ? [...window._selectedIds] : [];
+                const finalIds = (ids.length === allItems.length) ? [] : ids;
+                const endpoint = `/admin/users/${_userId}/${_type === 'books' ? 'book' : 'comic'}-access`;
+                await fetch(endpoint, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: finalIds }) });
+                updateBadges(_userId, _type, finalIds);
+                closeModal();
+            });
+
+            document.querySelectorAll('.js-item-access').forEach(btn => {
+                btn.addEventListener('click', () => openModal(btn.dataset.userId, btn.dataset.type, btn.dataset.username));
             });
 
             // API key management

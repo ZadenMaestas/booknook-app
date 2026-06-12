@@ -4,6 +4,7 @@ import path from 'path';
 import { Book, ReadingProgress, UserBookAccess } from '../database';
 import { render } from '../utils/render';
 import { resolveBookMeta, saveBookCover, BOOK_EXTS } from '../utils/bookImport';
+import { cacheCoverBuffer } from '../utils/coverUtils';
 import plugins from '../plugins';
 import { BOOKS_DIR, COVER_DIR } from '../utils/paths';
 import { requirePermission } from '../middleware/auth';
@@ -132,6 +133,22 @@ router.patch('/books/:id', requirePermission('books'), async c => {
     if (author !== undefined) updates.author = author || null;
     if (isbn   !== undefined) updates.isbn   = isbn   || null;
     if (Object.keys(updates).length) await Book.update(updates, { where: { id: c.req.param('id') } });
+    return c.body(null, 204);
+});
+
+router.post('/books/:id/cover', requirePermission('books'), async c => {
+    const id = c.req.param('id');
+    const user = c.get('session').user!;
+    if (!user.isAdmin) {
+        const allowed = await allowedBookIds(user.id);
+        if (allowed && !allowed.has(Number(id))) return c.body('Forbidden', 403);
+    }
+    const book = await Book.findByPk(id, { attributes: ['id'] });
+    if (!book) return c.body(null, 404);
+    const body = await c.req.parseBody();
+    const file = body['cover'];
+    if (!(file instanceof File) || !file.type.startsWith('image/')) return c.body('Invalid image', 400);
+    cacheCoverBuffer(path.join(COVER_DIR, `${id}.jpg`), Buffer.from(await file.arrayBuffer()));
     return c.body(null, 204);
 });
 

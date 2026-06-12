@@ -6,6 +6,7 @@ import { requireApiKey } from '../middleware/apiKey';
 import { render } from '../utils/render';
 import { getPages, getPage } from '../utils/cbzUtils';
 import { resolveComicMeta, saveComicCover } from '../utils/comicImport';
+import { cacheCoverBuffer } from '../utils/coverUtils';
 import { COMICS_DIR, COVER_DIR } from '../utils/paths';
 import { requirePermission } from '../middleware/auth';
 import type { AppVariables, UploadResult } from '../types';
@@ -250,6 +251,22 @@ router.patch('/:id', async c => {
     if (year        !== undefined) fields.year        = year ? parseInt(year, 10) : null;
     if (description !== undefined) fields.description = description?.trim() || null;
     if (Object.keys(fields).length) await Comic.update(fields, { where: { id: c.req.param('id') } });
+    return c.body(null, 204);
+});
+
+router.post('/:id/cover', async c => {
+    const id = c.req.param('id');
+    const user = c.get('session').user!;
+    if (!user.isAdmin) {
+        const allowed = await allowedComicIds(user.id);
+        if (allowed && !allowed.has(Number(id))) return c.body('Forbidden', 403);
+    }
+    const comic = await Comic.findByPk(id, { attributes: ['id'] });
+    if (!comic) return c.body(null, 404);
+    const body = await c.req.parseBody();
+    const file = body['cover'];
+    if (!(file instanceof File) || !file.type.startsWith('image/')) return c.body('Invalid image', 400);
+    cacheCoverBuffer(path.join(COVER_DIR, `c${id}.jpg`), Buffer.from(await file.arrayBuffer()));
     return c.body(null, 204);
 });
 

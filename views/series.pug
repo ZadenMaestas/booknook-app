@@ -59,7 +59,10 @@ block content
         button.context-menu__item.context-menu__item--status(data-status="read") Read
         button.context-menu__item.context-menu__item--status(data-status="none") Clear status
         .context-menu__sep
+        button#ctx-cover.context-menu__item Upload cover
+        .context-menu__sep
         button#ctx-delete.context-menu__item.context-menu__item--danger Delete
+    input#cover-input(type="file" accept="image/*" hidden)
 
 block scripts
     script.
@@ -107,4 +110,22 @@ block scripts
                 if (!document.querySelectorAll('.book-card').length)
                     window.location.href = '/comics';
             }
+        });
+
+        const coverInput = document.getElementById('cover-input');
+        document.getElementById('ctx-cover').addEventListener('click', () => {
+            if (activeId) coverInput.click();
+        });
+        coverInput.addEventListener('change', async () => {
+            const file = coverInput.files[0];
+            const id = activeId;
+            coverInput.value = '';
+            if (!file || !id) return;
+            const fd = new FormData();
+            fd.append('cover', file);
+            const res = await fetch(`/comics/${id}/cover`, { method: 'POST', body: fd });
+            if (!res.ok) { alert('Cover upload failed'); return; }
+            const card = document.querySelector(`.book-card[data-id="${id}"]`);
+            const img = card?.querySelector('.book-card__cover-img');
+            if (img) { img.style.display = ''; img.src = `/cache/covers/c${id}.jpg?t=${Date.now()}`; }
         });

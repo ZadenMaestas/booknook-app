@@ -98,7 +98,9 @@ main { padding: 56px 0; flex: 1; }
   transition: margin-left 250ms ease;
 }
 
+.app-layout:has(main.reader) .sidebar { display: none; }
 .page-content:has(main.reader) {
+  margin-left: 0 !important;
   height: 100dvh;
   min-height: 0;
   overflow: hidden;

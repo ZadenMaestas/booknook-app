@@ -105,6 +105,7 @@ main { padding: 56px 0; flex: 1; }
 }
 
 .page-content:has(main.reader) .footer { display: none; }
+.page-content:has(main.reader) > .topbar { display: none; }
 
 /* Comic reader: full viewport, no app chrome */
 .app-layout:has(main.comic-reader) .sidebar { display: none; }
@@ -1091,6 +1092,93 @@ label[for="uploadedBook"] {
 
 .reader__icon-btn:hover { background: var(--bg-alt); color: var(--text); }
 .reader__icon-btn.is-active { color: var(--amber); }
+.reader__icon-btn.is-hidden { display: none; }
+
+/* ── Reader TOC sidebar ── */
+.reader__toc-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 200ms ease, visibility 200ms ease;
+  z-index: 19;
+}
+
+.reader__toc-backdrop.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.reader__toc {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 300px;
+  max-width: 85vw;
+  background: var(--bg);
+  border-right: 1px solid rgba(196,122,59, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateX(-100%);
+  transition: transform 250ms ease;
+  z-index: 20;
+}
+
+.reader__toc.is-open {
+  transform: translateX(0);
+}
+
+.reader__toc-header {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid rgba(196,122,59, 0.15);
+  flex-shrink: 0;
+}
+
+.reader__toc-title {
+  font-family: 'Newsreader', serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.reader__toc-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  list-style: none;
+  margin: 0;
+}
+
+.reader__toc-list ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 14px;
+}
+
+.reader__toc-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.reader__toc-link:hover { background: var(--bg-alt); color: var(--text); }
+.reader__toc-link.is-active { color: var(--amber); font-weight: 600; }
 
 .reader__progress {
   height: 3px;
@@ -1318,10 +1406,6 @@ label[for="uploadedBook"] {
   .sidebar-backdrop { display: block; }
   .sidebar { top: 44px; }
   .page-content { margin-left: 0; }
-
-  /* Reader: reclaim topbar space — back button handles navigation */
-  .page-content:has(main.reader) > .topbar { display: none; }
-  .page-content:has(main.reader) { height: 100dvh; }
 
   h1 { font-size: 32px; }
 

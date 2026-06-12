@@ -37,7 +37,7 @@ router.post('/upload', requirePermission('books'), async c => {
         const ext = path.extname(file.name).toLowerCase();
         if (!BOOK_EXTS.has(ext)) {
             results.push({ file: file.name, status: 'error', error: 'unsupported extension' });
-            return;
+            continue;
         }
         fs.mkdirSync(BOOKS_DIR, { recursive: true });
         const destPath = path.join(BOOKS_DIR, file.name);

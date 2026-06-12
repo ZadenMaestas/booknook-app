@@ -2,15 +2,20 @@ import fs from 'fs';
 import path from 'path';
 import { EPub } from 'epub2';
 import type { TocElement } from 'epub2/lib/epub/const';
+import { Book, Comic } from '../database';
+import { extractCover } from './cbzUtils';
+import { pdfFirstPageAsJpeg } from './convertUtils';
+import { COVER_DIR } from './paths';
 
-const CACHE_DIR = path.join(__dirname, '../cache/covers');
+const COVER_FILE = /^c?\d+\.jpg$/;
 
 // Resize a cover to max 300px wide, strip metadata, quality 82.
 // Silently no-ops if magick isn't available or the file is already small.
 async function shrink(filePath: string): Promise<void> {
-    const stat = fs.statSync(filePath);
-    if (stat.size <= 60_000) return; // already small enough
-    const tmp = filePath + '.tmp';
+    let size = 0;
+    try { size = fs.statSync(filePath).size; } catch { return; }
+    if (size <= 60_000) return; // already small enough
+    const tmp = `${filePath}.tmp.jpg`; // .jpg suffix so ImageMagick never has to guess the output format
     const proc = Bun.spawn(
         ['magick', filePath, '-resize', '300x>', '-strip', '-quality', '82', tmp],
         { stdout: 'ignore', stderr: 'ignore' },
@@ -23,17 +28,36 @@ async function shrink(filePath: string): Promise<void> {
     }
 }
 
-// Called at startup — shrinks any existing oversized covers in the background.
+// Atomic write + background shrink — a crash mid-write must never leave a
+// truncated file masquerading as a cached cover.
+export function cacheCoverBuffer(dest: string, buf: Buffer): void {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    const tmp = `${dest}.part`;
+    fs.writeFileSync(tmp, buf);
+    fs.renameSync(tmp, dest);
+    shrink(dest).catch(() => {});
+}
+
+// Called at startup — clears write leftovers and shrinks any oversized covers.
 export async function shrinkExistingCovers(): Promise<void> {
-    if (!fs.existsSync(CACHE_DIR)) return;
-    const large = fs.readdirSync(CACHE_DIR)
-        .filter(f => f.endsWith('.jpg'))
-        .filter(f => fs.statSync(path.join(CACHE_DIR, f)).size > 60_000);
+    if (!fs.existsSync(COVER_DIR)) return;
+    const entries = fs.readdirSync(COVER_DIR);
+    for (const f of entries) {
+        if (f.endsWith('.part') || f.endsWith('.tmp.jpg')) {
+            try { fs.unlinkSync(path.join(COVER_DIR, f)); } catch {}
+        }
+    }
+    const large = entries
+        .filter(f => COVER_FILE.test(f))
+        .filter(f => {
+            try { return fs.statSync(path.join(COVER_DIR, f)).size > 60_000; }
+            catch { return false; }
+        });
     if (!large.length) return;
     // Parallel in batches of 4 to avoid spawning 20+ processes at once
     for (let i = 0; i < large.length; i += 4) {
         await Promise.all(
-            large.slice(i, i + 4).map(f => shrink(path.join(CACHE_DIR, f)).catch(() => {}))
+            large.slice(i, i + 4).map(f => shrink(path.join(COVER_DIR, f)).catch(() => {}))
         );
     }
     console.log(`[covers] shrunk ${large.length} existing cover(s)`);
@@ -69,10 +93,14 @@ async function extractEpubCover(filePath: string): Promise<Buffer | null> {
                     if (!candidates.includes(img)) candidates.push(img);
                 }
 
-                for (const item of candidates) {
-                    if (!item.id) continue;
-                    const buf = await getEpubImage(epub, item.id);
-                    if (buf && buf.length >= 10000) { resolve(buf); return; }
+                // Prefer images big enough to clearly be a cover; books with only
+                // small covers still beat falling through to a failed network fetch.
+                for (const minSize of [10_000, 1_500]) {
+                    for (const item of candidates) {
+                        if (!item.id) continue;
+                        const buf = await getEpubImage(epub, item.id);
+                        if (buf && buf.length >= minSize) { resolve(buf); return; }
+                    }
                 }
                 resolve(null);
             });
@@ -88,33 +116,75 @@ export async function fetchAndCacheCover(
     title: string | null,
     filePath: string | null,
     coverId?: number | null,
-): Promise<void> {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-    const dest = path.join(CACHE_DIR, `${bookId}.jpg`);
+): Promise<boolean> {
+    const dest = path.join(COVER_DIR, `${bookId}.jpg`);
 
-    if (filePath) {
+    if (filePath && fs.existsSync(filePath)) {
         const cover = await extractEpubCover(filePath);
         if (cover) {
-            fs.writeFileSync(dest, cover);
-            shrink(dest).catch(() => {});
-            return;
+            cacheCoverBuffer(dest, cover);
+            return true;
         }
     }
 
+    // ?default=false → 404 instead of a tiny placeholder image when no cover exists
     const urls: string[] = [];
-    if (coverId) urls.push(`https://covers.openlibrary.org/b/id/${coverId}-L.jpg`);
-    if (isbn)    urls.push(`https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`);
-    if (title)   urls.push(`https://covers.openlibrary.org/b/title/${encodeURIComponent(title)}-M.jpg`);
+    if (coverId) urls.push(`https://covers.openlibrary.org/b/id/${coverId}-L.jpg?default=false`);
+    if (isbn)    urls.push(`https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`);
+    if (title)   urls.push(`https://covers.openlibrary.org/b/title/${encodeURIComponent(title)}-M.jpg?default=false`);
 
     for (const url of urls) {
         try {
-            const res = await fetch(url);
+            const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
             if (!res.ok) continue;
+            const type = res.headers.get('content-type') ?? '';
+            if (type && !type.startsWith('image/')) continue;
             const buffer = Buffer.from(await res.arrayBuffer());
             if (buffer.length < 1000) continue;
-            fs.writeFileSync(dest, buffer);
-            shrink(dest).catch(() => {});
-            return;
+            cacheCoverBuffer(dest, buffer);
+            return true;
         } catch { continue; }
     }
+    return false;
+}
+
+// Imports fetch covers exactly once, so anything transient — no network at
+// import time, OpenLibrary down, a wiped or freshly-mounted cache volume —
+// used to lose the cover forever. Re-derive missing covers from local files,
+// falling back to OpenLibrary for books.
+export async function backfillMissingCovers(): Promise<void> {
+    const [books, comics] = await Promise.all([
+        Book.findAll({ attributes: ['id', 'isbn', 'title', 'filePath'] }),
+        Comic.findAll({ attributes: ['id', 'filePath'] }),
+    ]);
+    const missingBooks  = books.filter(b => !fs.existsSync(path.join(COVER_DIR, `${b.id}.jpg`)));
+    const missingComics = comics.filter(c => !fs.existsSync(path.join(COVER_DIR, `c${c.id}.jpg`)));
+    if (!missingBooks.length && !missingComics.length) return;
+
+    let restored = 0;
+    for (const book of missingBooks) {
+        try {
+            const filePath = book.filePath && fs.existsSync(book.filePath) ? book.filePath : null;
+            if (filePath && path.extname(filePath).toLowerCase() === '.pdf') {
+                const page = await pdfFirstPageAsJpeg(filePath).catch(() => null);
+                if (page) {
+                    cacheCoverBuffer(path.join(COVER_DIR, `${book.id}.jpg`), page);
+                    restored++;
+                    continue;
+                }
+            }
+            if (await fetchAndCacheCover(book.id, book.isbn, book.title, filePath)) restored++;
+        } catch {}
+    }
+    for (const comic of missingComics) {
+        try {
+            if (!comic.filePath || !fs.existsSync(comic.filePath)) continue;
+            const cover = await extractCover(comic.filePath);
+            if (cover) {
+                cacheCoverBuffer(path.join(COVER_DIR, `c${comic.id}.jpg`), cover);
+                restored++;
+            }
+        } catch {}
+    }
+    console.log(`[covers] backfilled ${restored}/${missingBooks.length + missingComics.length} missing cover(s)`);
 }

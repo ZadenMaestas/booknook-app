@@ -7,7 +7,7 @@ import {sequelize} from './database';
 import sessionMiddleware from './middleware/session';
 import {requireAuth, handleLogin, handleLogout} from './middleware/auth';
 import {render} from './utils/render';
-import {shrinkExistingCovers} from './utils/coverUtils';
+import {backfillMissingCovers, shrinkExistingCovers} from './utils/coverUtils';
 import {requirePermission} from './middleware/auth';
 import plugins from './plugins';
 import booksRouter from './routes/books';
@@ -31,7 +31,15 @@ app.onError((err, c) => {
 // ── Static & cache ────────────────────────────────────────────────────────────
 
 app.use('/*', serveStatic({root: './public'}));
-app.use('/cache/*', serveStatic({root: './'}));
+// Covers are served by absolute path — serveStatic roots are CWD-relative and
+// break when the app isn't started from the project root.
+app.get('/cache/covers/:file', async c => {
+    const name = c.req.param('file');
+    if (!/^c?\d+\.jpg$/.test(name)) return c.body(null, 404);
+    const file = Bun.file(path.join(BASEDIR, 'cache', 'covers', name));
+    if (!await file.exists()) return c.body(null, 404);
+    return new Response(file);
+});
 app.use('/cache/*', async c => c.body(null, 404));
 app.use(logger())
 
@@ -82,7 +90,9 @@ export {app};
 
 if (import.meta.main) {
     await plugins.load(app, sequelize);
-    shrinkExistingCovers().catch(e => console.error('[covers]', e));
+    shrinkExistingCovers()
+        .then(() => backfillMissingCovers())
+        .catch(e => console.error('[covers]', e));
     Bun.serve({fetch: app.fetch, port: PORT, maxRequestBodySize: 2 * 1024 * 1024 * 1024});
     console.log(`Booknook listening on http://localhost:${PORT}`);
 }

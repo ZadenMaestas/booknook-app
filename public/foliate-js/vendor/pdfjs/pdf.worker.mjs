@@ -24,6 +24,21 @@
  * pdfjsVersion = 5.5.207
  * pdfjsBuild = 527964698
  */
+// Polyfill for the Map "Upsert" proposal (Map.prototype.getOrInsert /
+// getOrInsertComputed), used by this build of PDF.js but not yet supported
+// in Safari/WebKit.
+if (!Map.prototype.getOrInsertComputed) {
+  Map.prototype.getOrInsertComputed = function (key, callbackfn) {
+    if (!this.has(key)) this.set(key, callbackfn(key));
+    return this.get(key);
+  };
+}
+if (!Map.prototype.getOrInsert) {
+  Map.prototype.getOrInsert = function (key, value) {
+    if (!this.has(key)) this.set(key, value);
+    return this.get(key);
+  };
+}
 /******/ // The require scope
 /******/ var __webpack_require__ = {};
 /******/ 

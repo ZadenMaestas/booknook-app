@@ -13,8 +13,13 @@ const naturalSort = (a: string, b: string) =>
 
 // ── 7z handles both ZIP/CBZ and RAR/CBR without loading the whole file ────────
 
+// Binary name varies by distro: Debian bookworm's 7zip ships only `7zz`,
+// trixie/p7zip ship `7z` — resolve whichever exists so base-image bumps
+// can't silently break cover extraction and page listing.
+const SEVEN_ZIP = Bun.which('7z') ?? Bun.which('7zz') ?? '7z';
+
 async function spawn7z(args: string[]): Promise<Buffer> {
-    const proc = Bun.spawn(['7z', ...args], { stdout: 'pipe', stderr: 'ignore' });
+    const proc = Bun.spawn([SEVEN_ZIP, ...args], { stdout: 'pipe', stderr: 'ignore' });
     const buf = await new Response(proc.stdout).arrayBuffer();
     await proc.exited;
     return Buffer.from(buf);

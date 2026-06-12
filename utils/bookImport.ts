@@ -1,8 +1,7 @@
-import fs from 'fs';
 import path from 'path';
 import { getEpubData, lookupByTitle, resolveISBN } from './bookUtils';
 import { pdfFirstPageAsJpeg } from './convertUtils';
-import { fetchAndCacheCover } from './coverUtils';
+import { cacheCoverBuffer, fetchAndCacheCover } from './coverUtils';
 import { COVER_DIR } from './paths';
 
 export const BOOK_EXTS = new Set(['.pdf', '.epub', '.mobi', '.azw', '.azw3', '.djvu', '.fb2']);
@@ -40,10 +39,15 @@ export async function resolveBookMeta(filePath: string): Promise<BookMeta> {
 }
 
 export async function saveBookCover(id: number, meta: Pick<BookMeta, 'isbn' | 'title' | 'coverId' | 'pdfCover'>, filePath: string): Promise<void> {
-    fs.mkdirSync(COVER_DIR, { recursive: true });
-    if (meta.pdfCover) {
-        fs.writeFileSync(path.join(COVER_DIR, `${id}.jpg`), meta.pdfCover);
-    } else {
-        fetchAndCacheCover(id, meta.isbn, meta.title, filePath, meta.coverId).catch(console.error);
+    // A failed cover (unwritable cache dir, network down) must never fail the import
+    try {
+        if (meta.pdfCover) {
+            cacheCoverBuffer(path.join(COVER_DIR, `${id}.jpg`), meta.pdfCover);
+        } else {
+            fetchAndCacheCover(id, meta.isbn, meta.title, filePath, meta.coverId)
+                .catch(err => console.error(`[covers] book ${id}:`, err));
+        }
+    } catch (err) {
+        console.error(`[covers] book ${id}:`, (err as Error).message);
     }
 }

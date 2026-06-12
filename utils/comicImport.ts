@@ -1,6 +1,6 @@
-import fs from 'fs';
 import path from 'path';
 import { getPages, extractCover, parseComicInfo, parseComicFilename } from './cbzUtils';
+import { cacheCoverBuffer } from './coverUtils';
 import { COVER_DIR } from './paths';
 
 export interface ComicMeta {
@@ -27,7 +27,12 @@ export async function resolveComicMeta(filePath: string): Promise<ComicMeta> {
 }
 
 export async function saveComicCover(id: number, filePath: string): Promise<void> {
-    fs.mkdirSync(COVER_DIR, { recursive: true });
-    const cover = await extractCover(filePath);
-    if (cover) fs.writeFileSync(path.join(COVER_DIR, `c${id}.jpg`), cover);
+    // A failed cover (no extractable image, unwritable cache dir) must never fail the import
+    try {
+        const cover = await extractCover(filePath);
+        if (cover) cacheCoverBuffer(path.join(COVER_DIR, `c${id}.jpg`), cover);
+        else console.warn(`[covers] no cover found in ${path.basename(filePath)}`);
+    } catch (err) {
+        console.error(`[covers] comic ${id}:`, (err as Error).message);
+    }
 }
